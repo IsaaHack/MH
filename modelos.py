@@ -2,6 +2,8 @@ import numpy as np
 from abc import ABC, abstractmethod
 import funciones
 
+SQRT_03 = np.sqrt(0.3)
+
 '''------------------------------------MODELO GENERICO------------------------------------'''
 
 class Genetic_Model(ABC):
@@ -17,15 +19,17 @@ class Genetic_Model(ABC):
     
     @abstractmethod
     def predict(self, X_test):
-        return np.apply_along_axis(self._predict, 1, X_test, self.weights)
+        y_pred = np.array([self._predict(x, self.weights) for x in X_test])
+        return y_pred
 
     @abstractmethod
     def _predict(self, x, weights):
-        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * weights, axis=1))
+        distances = np.sqrt(np.sum((((self.X_train - x)) ** 2)* weights , axis=1))
         return self.y_train[np.argmin(distances)]
 
+    @abstractmethod
     def _predict_without_x(self, x, weights):
-        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * weights, axis=1))
+        distances = np.sqrt(np.sum((((self.X_train - x)) ** 2)* weights , axis=1))
         nearest = np.argsort(distances)[1:2]
         return self.y_train[nearest[0]]
     
@@ -85,11 +89,13 @@ class KNN(Genetic_Model):
         self.weights = np.ones(X_train.shape[1])
 
     def predict(self, X_test):
-        return super().predict(X_test)
+        return np.apply_along_axis(self._predict, 1, X_test, self.weights)
 
     def _predict(self, x, weights):
         distances = np.sqrt(np.sum((self.X_train - x) ** 2, axis=1))
         k_indices = np.argsort(distances)[:self.k]
+        if self.k == 1:
+            return self.y_train[k_indices[0]]
         k_nearest_labels = self.y_train[k_indices]
         most_common = self._most_common(k_nearest_labels)
         return most_common
@@ -97,6 +103,8 @@ class KNN(Genetic_Model):
     def _predict_without_x(self, x, weights):
         distances = np.sqrt(np.sum((self.X_train - x) ** 2, axis=1))
         k_indices = np.argsort(distances)[1:self.k+1]
+        if self.k == 1:
+            return self.y_train[k_indices[0]]
         k_nearest_labels = self.y_train[k_indices]
         most_common = self._most_common(k_nearest_labels)
         return most_common
@@ -149,25 +157,20 @@ class Relief(Genetic_Model):
         for i in range(len(self.X_train)):
             distances = np.sqrt(np.sum((self.X_train - self.X_train[i]) ** 2, axis=1))
             indices = np.argsort(distances)[1:]
-            nearest_hit = np.array([j for j in indices if self.y_train[i] == self.y_train[j]])[:1]
-            nearest_miss = np.array([j for j in indices if self.y_train[i] != self.y_train[j]])[:1]
-            if(len(nearest_hit) == 0 or len(nearest_miss) == 0):
-                continue
-            for j in range(len(self.X_train[i])):
-                near_hit = self.X_train[nearest_hit[0]][j]
-                near_miss = self.X_train[nearest_miss[0]][j]
-                self.weights[j] += abs(self.X_train[i][j] - near_miss) - abs(self.X_train[i][j] - near_hit)
+            nearest_hit = -1
+
+            n_hits = indices[self.y_train[i] == self.y_train[indices]]
+            if n_hits.size > 0:
+                nearest_hit = n_hits[0]
+            nearest_miss = indices[self.y_train[i] != self.y_train[indices]][0]
+
+            if nearest_hit != -1:
+                self.weights += np.abs(self.X_train[i] - self.X_train[nearest_miss]) - np.abs(self.X_train[i] - self.X_train[nearest_hit])
         
-        max_weight = max(self.weights)
-        for i in range(len(self.weights)):
-            if self.weights[i] < 0:
-                self.weights[i] = 0
-            else:
-                self.weights[i] = self.weights[i] / max_weight
-
+        max_weight = np.max(self.weights)
+        self.weights = np.maximum(self.weights / max_weight, 0) 
         self.true_weights = np.copy(self.weights)
-        self.features = np.argsort(self.weights)[::-1]
-
+        self.features = np.argsort(self.true_weights)[::-1]
         self.weights[self.weights < 0.1] = 0
 
     def predict(self, X_test):
@@ -237,10 +240,15 @@ class BL(Genetic_Model):
                 new_evaluation = self._fitness(neighbor)
                 iterations += 1
                 n_eval += 1
-                if new_evaluation > actual_evaluation:
+                while new_evaluation > actual_evaluation and n_eval < evaluations:
                     actual_evaluation = new_evaluation
                     self.weights = np.copy(neighbor)
                     iterations = 0
+                    neighbor = self._get_neighbor(mut)
+                    new_evaluation = self._fitness(neighbor)
+                    n_eval += 1
+
+                if n_eval >= evaluations or iterations >= self.MAX_ITER:
                     break
                 
 
@@ -248,7 +256,7 @@ class BL(Genetic_Model):
             
 
     def _get_neighbor(self, mutation_order):
-        mutation :float = np.random.normal(0,0.2)
+        mutation = np.random.normal(0, SQRT_03)
         
         neighbor = np.copy(self.weights)
 

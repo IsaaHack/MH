@@ -187,6 +187,10 @@ for i in range(5):
 
     print('Tiempo', time_end - time_start)
 
+    formatted_output = ','.join(map(str, model.weights))
+
+    print('Pesos:', formatted_output)
+
     if model_type == 'Relief' or model_type == 'BL':
         features_importantes = np.array(feature_names)[model.features]
         # Seleccionar solo las tres primeras características importantes
