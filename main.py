@@ -19,7 +19,7 @@ elif database != '':
     print('Base de datos no válida')
     exit()
 
-print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL [3]):')
+print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3]):')
 model_type = input()
 
 if model_type == 'KNN' or model_type == '' or model_type == '1':
@@ -107,7 +107,9 @@ X5 = X[X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]:]
 tasa_class_media = 0
 tasa_red_media = 0
 evaluacion_media = 0
+accuracy_media = 0
 tiempo_medio = 0
+np.random.seed(seed)
 for i in range(5):
     # Unir los conjuntos de datos
     if(i == 0):
@@ -143,7 +145,7 @@ for i in range(5):
     if model_type == 'KNN':
         model = modelos.KNN(k)
     elif model_type == 'Relief':
-        model = modelos.Relief(1)
+        model = modelos.Relief()
     elif model_type == 'BL':
         model = modelos.BL(np.random.randint(0, 1000))
 
@@ -151,14 +153,17 @@ for i in range(5):
 
     # Evaluar el modelo
 
-    tasa_red = model.redRate(X_test, y_test)
+    tasa_red = model.redRate()
     tasa_red_media += tasa_red
 
     tasa_clas = model.clasRate()
     tasa_class_media += tasa_clas
 
-    evaluacion = funciones.evaluationFunction(tasa_clas, tasa_red)
+    evaluacion = model.fitness(clasRate=tasa_clas, redRate=tasa_red)
     evaluacion_media += evaluacion
+
+    accuracy = model.accuracy(X_test, y_test)
+    accuracy_media += accuracy
 
     time_end = time.time()
     tiempo_medio += time_end - time_start
@@ -178,6 +183,8 @@ for i in range(5):
 
     print('Fitness:', evaluacion)
 
+    print('Accuracy:', accuracy)
+
     print('Tiempo', time_end - time_start)
 
     if model_type == 'Relief' or model_type == 'BL':
@@ -195,6 +202,7 @@ for i in range(5):
 tasa_class_media /= 5
 tasa_red_media /= 5
 evaluacion_media /= 5
+accuracy_media /= 5
 tiempo_medio /= 5
 
 time_total_end = time.time()
@@ -210,6 +218,8 @@ print('Media de la tasa de clasificación:', tasa_class_media)
 print('Media de la tasa de reducción:', tasa_red_media)
 
 print('Media del fitness:', evaluacion_media)
+
+print('Media del accuracy:', accuracy_media)
 
 print('Media del tiempo:', tiempo_medio)
 

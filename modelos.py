@@ -6,24 +6,66 @@ import funciones
 
 class Genetic_Model(ABC):
     @abstractmethod
+    def __init__(self):
+        self.X_train = None
+        self.y_train = None
+        self.weights = None
+
+    @abstractmethod
     def fit(self, X_train, y_train):
         pass
     
     @abstractmethod
     def predict(self, X_test):
-        pass
+        return np.apply_along_axis(self._predict, 1, X_test, self.weights)
+
+    @abstractmethod
+    def _predict(self, x, weights):
+        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * weights, axis=1))
+        return self.y_train[np.argmin(distances)]
+
+    def _predict_without_x(self, x, weights):
+        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * weights, axis=1))
+        nearest = np.argsort(distances)[1:2]
+        return self.y_train[nearest[0]]
     
     @abstractmethod
-    def redRate(self, X_test, y_test):
-        pass
+    def _redRate(self, weights):
+        contador = 0
+        contador += np.sum(weights < 0.1)
+        return 100*contador/weights.shape[0]
+    
+    @abstractmethod
+    def redRate(self):
+        return self._redRate(self.weights)
+    
+    @abstractmethod
+    def _clasRate(self, weights):
+        y_pred = np.apply_along_axis(self._predict_without_x, 1, self.X_train, weights)
+        return 100*np.mean(y_pred == self.y_train)
     
     @abstractmethod
     def clasRate(self):
-        pass
+        return self._clasRate(self.weights)
     
     @abstractmethod
-    def _most_common(self, arr: np.array):
-        pass
+    def _fitness(self, weights, alpha=0.75):
+        return self._clasRate(weights) * alpha + self._redRate(weights) * (1-alpha)
+    
+    @abstractmethod
+    def fitness(self, clasRate, redRate, alpha=0.75):
+        return clasRate * alpha + redRate * (1-alpha)
+    
+    @abstractmethod
+    def global_score(self, alpha=0.75):
+        clasRate = self.clasRate(self.weights)
+        redRate = self.redRate(self.weights)
+        return clasRate, redRate, self.fitness(clasRate, redRate, alpha)
+    
+    @abstractmethod
+    def accuracy(self, X_test, y_test):
+        y_pred = self.predict(X_test)
+        return 100*np.mean(y_pred == y_test)
 
     @abstractmethod
     def __name__(self):
@@ -34,47 +76,57 @@ class Genetic_Model(ABC):
 
 class KNN(Genetic_Model):
     def __init__(self, k=1):
+        super().__init__()
         self.k = k
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
         self.y_train = y_train
+        self.weights = np.ones(X_train.shape[1])
 
     def predict(self, X_test):
-        return np.array([self._predict(x) for x in X_test])
+        return super().predict(X_test)
 
-    def _predict(self, x):
-        # Calcular distancias
+    def _predict(self, x, weights):
         distances = np.sqrt(np.sum((self.X_train - x) ** 2, axis=1))
-        # Obtener los k vecinos más cercanos
         k_indices = np.argsort(distances)[:self.k]
-        # Obtener las etiquetas de los k vecinos más cercanos
         k_nearest_labels = self.y_train[k_indices]
-        # Devolver la etiqueta más común
+        most_common = self._most_common(k_nearest_labels)
+        return most_common
+    
+    def _predict_without_x(self, x, weights):
+        distances = np.sqrt(np.sum((self.X_train - x) ** 2, axis=1))
+        k_indices = np.argsort(distances)[1:self.k+1]
+        k_nearest_labels = self.y_train[k_indices]
         most_common = self._most_common(k_nearest_labels)
         return most_common
     
     def _most_common(self, arr: np.array):
         return max(set(arr), key=list(arr).count)
     
-    def redRate(self, X_test, y_test):
-        y_pred = self.predict(X_test)
-        return 100*np.mean(y_pred == y_test)
+    def _redRate(self, weights):
+        return super()._redRate(weights)
+    
+    def redRate(self):
+        return super().redRate()
+    
+    def _clasRate(self, weights):
+        return super()._clasRate(weights)
     
     def clasRate(self):
-        y_pred = np.array([self._predict_without_x(x) for x in self.X_train])
-        return 100*np.mean(y_pred == self.y_train)
+        return super().clasRate()
     
-    def _predict_without_x(self, x):
-        # Calcular distancias
-        distances = np.sqrt(np.sum((self.X_train - x) ** 2, axis=1))
-        # Obtener los k vecinos más cercanos
-        k_indices = np.argsort(distances)[1:self.k+1]
-        # Obtener las etiquetas de los k vecinos más cercanos
-        k_nearest_labels = self.y_train[k_indices]
-        # Devolver la etiqueta más común
-        most_common = self._most_common(k_nearest_labels)
-        return most_common
+    def _fitness(self, weights, alpha=1):
+        return super()._fitness(weights, alpha)
+    
+    def fitness(self, clasRate, redRate, alpha=1):
+        return super().fitness(clasRate, redRate, alpha)
+    
+    def global_score(self, alpha=1):
+        return super().global_score(alpha)
+    
+    def accuracy(self, X_test, y_test):
+        return super().accuracy(X_test, y_test)
     
     def __name__(self):
         return self.k+'-NN'
@@ -82,22 +134,25 @@ class KNN(Genetic_Model):
 '''------------------------------------RELIEF(GREEDY)------------------------------------'''
 
 class Relief(Genetic_Model):
-    def __init__(self, k=1):
-        self.k = k
+    def __init__(self):
+        super().__init__()
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
         self.y_train = y_train
         self.features = np.empty(X_train.shape[1], dtype=int)
         self.weights = np.zeros(X_train.shape[1])
+        self.true_weights = np.zeros(X_train.shape[1])
         self._fit()
 
     def _fit(self):
         for i in range(len(self.X_train)):
             distances = np.sqrt(np.sum((self.X_train - self.X_train[i]) ** 2, axis=1))
-            indices = np.argsort(distances)
+            indices = np.argsort(distances)[1:]
             nearest_hit = np.array([j for j in indices if self.y_train[i] == self.y_train[j]])[:1]
             nearest_miss = np.array([j for j in indices if self.y_train[i] != self.y_train[j]])[:1]
+            if(len(nearest_hit) == 0 or len(nearest_miss) == 0):
+                continue
             for j in range(len(self.X_train[i])):
                 near_hit = self.X_train[nearest_hit[0]][j]
                 near_miss = self.X_train[nearest_miss[0]][j]
@@ -109,43 +164,44 @@ class Relief(Genetic_Model):
                 self.weights[i] = 0
             else:
                 self.weights[i] = self.weights[i] / max_weight
+
+        self.true_weights = np.copy(self.weights)
         self.features = np.argsort(self.weights)[::-1]
 
-    def predict(self, X_test):
-        return np.array([self._predict(x) for x in X_test])
+        self.weights[self.weights < 0.1] = 0
 
-    def _predict(self, x):
-        # Calcular distancias
-        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * self.weights, axis=1))
-        # Obtener los k vecinos más cercanos
-        k_indices = np.argsort(distances)[:self.k]
-        # Obtener las etiquetas de los k vecinos más cercanos
-        k_nearest_labels = self.y_train[k_indices]
-        # Devolver la etiqueta más común
-        most_common = self._most_common(k_nearest_labels)
-        return most_common
+    def predict(self, X_test):
+        return super().predict(X_test)
+
+    def _predict(self, x, weights):
+        return super()._predict(x, weights)
     
-    def _most_common(self, arr: np.array):
-        return max(set(arr), key=list(arr).count)
+    def _predict_without_x(self, x, weights):
+        return super()._predict_without_x(x, weights)
     
-    def redRate(self, X_test, y_test):
-        y_pred = self.predict(X_test)
-        return 100*np.mean(y_pred == y_test)
+    def _redRate(self, weights):
+        return super()._redRate(weights)
+    
+    def redRate(self):
+        return super().redRate()
+    
+    def _clasRate(self, weights):
+        return super()._clasRate(weights)
     
     def clasRate(self):
-        y_pred = np.array([self._predict_without_x(x) for x in self.X_train])
-        return 100*np.mean(y_pred == self.y_train)
+        return super().clasRate()
     
-    def _predict_without_x(self, x):
-        # Calcular distancias
-        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * self.weights, axis=1))
-        # Obtener los k vecinos más cercanos
-        k_indices = np.argsort(distances)[1:self.k+1]
-        # Obtener las etiquetas de los k vecinos más cercanos
-        k_nearest_labels = self.y_train[k_indices]
-        # Devolver la etiqueta más común
-        most_common = self._most_common(k_nearest_labels)
-        return most_common
+    def _fitness(self, weights, alpha=0.75):
+        return super()._fitness(weights, alpha)
+    
+    def fitness(self, clasRate, redRate, alpha=0.75):
+        return super().fitness(clasRate, redRate, alpha)
+    
+    def global_score(self, alpha=0.75):
+        return super().global_score(alpha)
+    
+    def accuracy(self, X_test, y_test):
+        return super().accuracy(X_test, y_test)
     
     def __name__(self):
         return 'Relief'
@@ -155,93 +211,88 @@ class Relief(Genetic_Model):
     
 class BL(Genetic_Model):
     def __init__(self, seed=7):
+        super().__init__()
         self.seed = seed
         np.random.seed(seed)
 
-    def fit(self, X_train, y_train):
+    def fit(self, X_train, y_train, evaluations=15000):
         self.X_train = X_train
         self.y_train = y_train
-        self.k = 1
         self.weights = np.random.uniform(0, 1, X_train.shape[1])
         self.features = np.empty(X_train.shape[1], dtype=int)
         self.MAX_ITER : int = 20*self.weights.shape[0]
-        self._fit()
+        self._fit(evaluations)
 
-    def _fit(self):
+    def _fit(self, evaluations=15000):
         old_weights = np.copy(self.weights)
-        actual_evaluation = self.clasRate()
+        actual_evaluation = self._fitness(self.weights)
         iterations : int = 0
-        improves : bool = False
+        n_eval : int = 0
 
-        while iterations < self.MAX_ITER and not improves:
+        while iterations < self.MAX_ITER and n_eval < evaluations:
             mutation_order = np.random.permutation(self.weights.shape[0])
-            neighbors = self._get_neighbors(mutation_order)
-            for neighbor in neighbors:
-                self.weights = neighbor
-                new_evaluation = self.clasRate()
+
+            for mut in mutation_order:
+                neighbor = self._get_neighbor(mut)
+                new_evaluation = self._fitness(neighbor)
+                iterations += 1
+                n_eval += 1
                 if new_evaluation > actual_evaluation:
                     actual_evaluation = new_evaluation
-                    improves = True
+                    self.weights = np.copy(neighbor)
+                    iterations = 0
                     break
-                iterations += 1
-
-        if not improves:
-            self.weights = old_weights
+                
 
         self.features = np.argsort(self.weights)[::-1]
             
 
-    def _get_neighbors(self, mutation_order):
-        random_array = np.random.normal(0, 0.2, self.weights.shape[0])
-        z = self.weights + random_array
-        neighbors = np.empty((mutation_order.shape[0], self.weights.shape[0]))
-        for i in range(len(mutation_order)):
-            neighbor = np.copy(self.weights)
-            neighbor[mutation_order[i]] = z[i]
+    def _get_neighbor(self, mutation_order):
+        mutation :float = np.random.normal(0,0.2)
+        
+        neighbor = np.copy(self.weights)
 
-            if neighbor[mutation_order[i]] < 0:
-                neighbor[mutation_order[i]] = 0
-            elif neighbor[mutation_order[i]] > 1:
-                neighbor[mutation_order[i]] = 1
+        neighbor[mutation_order] += mutation
 
-            neighbors[i] = neighbor
+        neighbor[neighbor < 0.1] = 0
 
-        return neighbors
+        neighbor[neighbor > 1] = 1
+
+        return neighbor
     
     def predict(self, X_test):
-        return np.array([self._predict(x) for x in X_test])
-    
-    def _predict(self, x):
-        # Calcular distancias
-        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * self.weights, axis=1))
-        # Obtener los k vecinos más cercanos
-        k_indices = np.argsort(distances)[:self.k]
-        # Obtener las etiquetas de los k vecinos más cercanos
-        k_nearest_labels = self.y_train[k_indices]
-        # Devolver la etiqueta más común
-        most_common = self._most_common(k_nearest_labels)
-        return most_common
-    
-    def _most_common(self, arr: np.array):
-        return max(set(arr), key=list(arr).count)
+        return super().predict(X_test)
 
-    def redRate(self, X_test, y_test):
-        y_pred = self.predict(X_test)
-        return 100*np.mean(y_pred == y_test)
+    def _predict(self, x, weights):
+        return super()._predict(x, weights)
+    
+    def _predict_without_x(self, x, weights):
+        return super()._predict_without_x(x, weights)
+    
+    def _redRate(self, weights):
+        return super()._redRate(weights)
+    
+    def redRate(self):
+        return super().redRate()
+    
+    def _clasRate(self, weights):
+        return super()._clasRate(weights)
     
     def clasRate(self):
-        y_pred = np.array([self._predict_without_x(x) for x in self.X_train])
-        return 100*np.mean(y_pred == self.y_train)
+        return super().clasRate()
     
-    def _predict_without_x(self, x):
-        # Calcular distancias
-        distances = np.sqrt(np.sum(((self.X_train - x) ** 2) * self.weights, axis=1))
-        # Obtener los k vecinos más cercanos
-        k_indices = np.argsort(distances)[1:self.k+1]
-        # Obtener las etiquetas de los k vecinos más cercanos
-        k_nearest_labels = self.y_train[k_indices]
-        # Devolver la etiqueta más común
-        most_common = self._most_common(k_nearest_labels)
-        return most_common
+    def fitness(self, clasRate, redRate, alpha=0.75):
+        return super().fitness(clasRate, redRate, alpha)
+    
+    def _fitness(self, weights, alpha=0.75):
+        return super()._fitness(weights, alpha)
+    
+    def global_score(self, alpha=0.75):
+        return super().global_score(alpha)
+    
+    def accuracy(self, X_test, y_test):
+        return super().accuracy(X_test, y_test)
+    
+    
     
         
