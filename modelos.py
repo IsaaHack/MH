@@ -26,6 +26,15 @@ except ImportError:
     except subprocess.CalledProcessError:
         print("Error al instalar SciPy. Por favor, instálalo manualmente.")
 
+CUDA = True
+try:
+    import cupy as cp
+    import cupyx.scipy.spatial.distance as cpdist
+except ImportError:
+    CUDA = False
+    print("CuPy no está instalado.")
+    print("Por favor, instala CuPy manualmente si quieres clasificar con GPU.")
+
 SQRT_03 = np.sqrt(0.3)
 
 '''------------------------------------MODELO GENERICO------------------------------------'''
@@ -36,6 +45,7 @@ class Genetic_Model(ABC):
         self.X_train = None
         self.y_train = None
         self.weights = None
+        self.X_train_gpu = None
 
     @abstractmethod
     def fit(self, X_train, y_train):
@@ -77,6 +87,37 @@ class Genetic_Model(ABC):
         return 100*np.mean(predictions_labels == self.y_train)
     
     @abstractmethod
+    def _clas_rate_gpu(self, weights):
+        gpu_matrix = cp.random.rand(3, 4)
+        matrix = gpu_matrix.get()
+        print(gpu_matrix)
+        gpu_weights = cp.random.rand(4)
+        gpu_weights = cp.clip(gpu_weights, 0, 1)
+        we = gpu_weights.get()
+        out = cp.empty((3,4))
+        #print(out)
+        algo = cpdist.pdist(gpu_matrix, 'euclidean', out=out).get()
+        print(sp.squareform(algo))
+        k : float = np.sqrt(np.sum(we)/np.prod(we))
+        print(k)
+        algo = algo*k
+        print(sp.squareform(algo))
+
+        algo2 = sp.squareform(sp.pdist(matrix, 'euclidean', w=we))
+        print(algo2)
+
+        #print(distances.shape)
+        #distances = sp.squareform(distances)
+        #print(distances.shape)
+        exit()
+        ii = np.arange(self.X_train.shape[0])
+        distances[ii, ii] = np.inf
+        index_predictions = np.argmin(distances, axis=1)
+        predictions_labels = self.y_train[index_predictions]
+
+        return 100*np.mean(predictions_labels == self.y_train)
+    
+    @abstractmethod
     def clas_rate(self):
         return self._clas_rate(self.weights)
     
@@ -84,6 +125,9 @@ class Genetic_Model(ABC):
     def _fitness(self, weights, alpha=0.75):
         return self._clas_rate(weights) * alpha + self._red_rate(weights) * (1-alpha)
     
+    @abstractmethod
+    def _fitness_gpu(self, weights, alpha=0.75):
+        return self._clas_rate_gpu(weights) * alpha + self._red_rate(weights) * (1-alpha)
     
     @abstractmethod
     def fitness(self, clasRate, redRate, alpha=0.75):
@@ -114,6 +158,7 @@ class KNN(Genetic_Model):
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
+        if(CUDA) : self.X_train_gpu = cp.array(X_train)
         self.y_train = y_train
         self.weights = np.ones(X_train.shape[1])
 
@@ -151,6 +196,9 @@ class KNN(Genetic_Model):
         y_pred = np.apply_along_axis(self._predict_without_x, 1, self.X_train, weights)
         return 100*np.mean(y_pred == self.y_train)
     
+    def _clas_rate_gpu(self, weights):
+        return super()._clas_rate_gpu(weights)
+    
     def clas_rate(self):
         return super().clas_rate()
     
@@ -159,6 +207,9 @@ class KNN(Genetic_Model):
     
     def fitness(self, clasRate, redRate, alpha=0.75):
         return super().fitness(clasRate, redRate, alpha)
+    
+    def _fitness_gpu(self, weights, alpha=0.75):
+        return super()._fitness_gpu(weights, alpha)
     
     def global_score(self, alpha=0.75):
         return super().global_score(alpha)
@@ -177,6 +228,7 @@ class Relief(Genetic_Model):
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
+        if(CUDA) : self.X_train_gpu = cp.array(X_train)
         self.y_train = y_train
         self.features = np.empty(X_train.shape[1], dtype=int)
         self.weights = np.zeros(X_train.shape[1])
@@ -218,11 +270,17 @@ class Relief(Genetic_Model):
     def _clas_rate(self, weights):
         return super()._clas_rate(weights)
     
+    def _clas_rate_gpu(self, weights):
+        return super()._clas_rate_gpu(weights)
+    
     def clas_rate(self):
         return super().clas_rate()
     
     def _fitness(self, weights, alpha=0.75):
         return super()._fitness(weights, alpha)
+    
+    def _fitness_gpu(self, weights, alpha=0.75):
+        return super()._fitness_gpu(weights, alpha)
     
     def fitness(self, clasRate, redRate, alpha=0.75):
         return super().fitness(clasRate, redRate, alpha)
@@ -247,12 +305,14 @@ class BL(Genetic_Model):
 
     def fit(self, X_train, y_train, evaluations=15000):
         self.X_train = X_train
+        if(CUDA) : self.X_train_gpu = cp.array(X_train)
         self.y_train = y_train
         self.weights = np.random.uniform(0, 1, X_train.shape[1])
         self.weights[self.weights < 0.1] = 0
         self.features = np.empty(X_train.shape[1], dtype=int)
         self.MAX_ITER : int = 20*self.weights.shape[0]
-        self._fit(evaluations)
+        if(CUDA) : self._fit_gpu(evaluations)
+        else: self._fit(evaluations)
 
     def _fit(self, evaluations=15000):
         actual_evaluation = self._fitness(self.weights)
@@ -276,6 +336,38 @@ class BL(Genetic_Model):
                     self.weights = np.copy(neighbor)
                     neighbor = self._get_neighbor(mut)
                     new_evaluation = self._fitness(neighbor)
+                    n_eval += 1
+
+                if n_eval >= evaluations or iterations >= self.MAX_ITER or iterations == 0:
+                    if new_evaluation > actual_evaluation:
+                        self.weights = np.copy(neighbor)
+                    break
+                
+
+        self.features = np.argsort(self.weights)[::-1]
+
+    def _fit_gpu(self, evaluations=15000):
+        actual_evaluation = self._fitness_gpu(self.weights)
+        iterations : int = 0
+        n_eval : int = 0
+
+        while iterations < self.MAX_ITER and n_eval < evaluations:
+            mutation_order = np.random.permutation(self.weights.shape[0])
+
+            for mut in mutation_order:
+                neighbor = self._get_neighbor(mut)
+                new_evaluation = self._fitness_gpu(neighbor)
+                iterations += 1
+                n_eval += 1
+
+                if new_evaluation > actual_evaluation:
+                    iterations = 0
+
+                while new_evaluation > actual_evaluation and n_eval < evaluations:
+                    actual_evaluation = new_evaluation
+                    self.weights = np.copy(neighbor)
+                    neighbor = self._get_neighbor(mut)
+                    new_evaluation = self._fitness_gpu(neighbor)
                     n_eval += 1
 
                 if n_eval >= evaluations or iterations >= self.MAX_ITER or iterations == 0:
@@ -310,6 +402,9 @@ class BL(Genetic_Model):
     def _clas_rate(self, weights):
         return super()._clas_rate(weights)
     
+    def _clas_rate_gpu(self, weights):
+        return super()._clas_rate_gpu(weights)
+    
     def clas_rate(self):
         return super().clas_rate()
     
@@ -318,6 +413,9 @@ class BL(Genetic_Model):
     
     def _fitness(self, weights, alpha=0.75):
         return super()._fitness(weights, alpha)
+    
+    def _fitness_gpu(self, weights, alpha=0.75):
+        return super()._fitness_gpu(weights, alpha)
     
     def global_score(self, alpha=0.75):
         return super().global_score(alpha)
