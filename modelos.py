@@ -69,8 +69,9 @@ class Genetic_Model(ABC):
         w = np.copy(weights)
         w[w < 0.1] = 0
         distances = sp.squareform(sp.pdist(self.X_train, 'euclidean', w=w))
-        ii = np.arange(self.X_train.shape[0])
-        distances[ii, ii] = np.inf
+        distances[np.diag_indices(distances.shape[0])] = np.inf
+        #ii = np.arange(self.X_train.shape[0])
+        #distances[ii, ii] = np.inf
         index_predictions = np.argmin(distances, axis=1)
         predictions_labels = self.y_train[index_predictions]
 
@@ -184,8 +185,7 @@ class Relief(Genetic_Model):
 
     def _fit(self):
         distances = sp.squareform(sp.pdist(self.X_train, 'euclidean'))
-        ii = np.arange(self.X_train.shape[0])
-        distances[ii, ii] = np.inf
+        distances[np.diag_indices(distances.shape[0])] = np.inf
         all_index = np.argsort(distances, axis=1)
 
         for i in range(len(self.X_train)):
