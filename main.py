@@ -1,9 +1,30 @@
-import numpy as np
-import arff
+import subprocess
+
+try:
+    import numpy as np
+except ImportError:
+    print("NumPy no está instalado. Instalando NumPy...")
+    try:
+        subprocess.check_call(["pip", "install", "numpy"])
+        import numpy as np
+        print("NumPy se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar NumPy. Por favor, instálalo manualmente.")
+
+try:
+    import arff
+except ImportError:
+    print("arff no está instalado. Instalando arff...")
+    try:
+        subprocess.check_call(["pip", "install", "liac-arff"])
+        import arff
+        print("arff se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar arff. Por favor, instálalo manualmente.")
+
 import time
 import modelos
 import funciones
-import datetime
 
 print('Introduce la base de datos a utilizar [Opciones: BreastCancer[DEFAULT][1], Ecoli[2], Parkinson[3]]:')
 database = input()
@@ -107,6 +128,7 @@ X5 = X[X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]:]
 tasa_class_media = 0
 tasa_red_media = 0
 evaluacion_media = 0
+evaluacion_test_media = 0
 accuracy_media = 0
 tiempo_medio = 0
 np.random.seed(seed)
@@ -153,10 +175,10 @@ for i in range(5):
 
     # Evaluar el modelo
 
-    tasa_red = model.redRate()
+    tasa_red = model.red_rate()
     tasa_red_media += tasa_red
 
-    tasa_clas = model.clasRate()
+    tasa_clas = model.clas_rate()
     tasa_class_media += tasa_clas
 
     evaluacion = model.fitness(clasRate=tasa_clas, redRate=tasa_red)
@@ -164,6 +186,9 @@ for i in range(5):
 
     accuracy = model.accuracy(X_test, y_test)
     accuracy_media += accuracy
+
+    evaluacion_test = funciones.evaluationFunction(accuracy, tasa_red)
+    evaluacion_test_media += evaluacion_test
 
     time_end = time.time()
     tiempo_medio += time_end - time_start
@@ -174,6 +199,8 @@ for i in range(5):
 
     print('Modelo:', model_type)
 
+    print('Conjunto de datos:', cadena)
+
     if model_type == 'BL':
         print('Semilla:', model.seed)
 
@@ -181,7 +208,9 @@ for i in range(5):
 
     print('Tasa de reducción:', tasa_red)
 
-    print('Fitness:', evaluacion)
+    print('Fitness train:', evaluacion)
+
+    print('Fitness test:', evaluacion_test)
 
     print('Accuracy:', accuracy)
 
@@ -206,6 +235,7 @@ for i in range(5):
 tasa_class_media /= 5
 tasa_red_media /= 5
 evaluacion_media /= 5
+evaluacion_test_media /= 5
 accuracy_media /= 5
 tiempo_medio /= 5
 
@@ -217,11 +247,15 @@ print('----------------------Resultados Finales----------------------')
 
 print('Modelo:', model_type)
 
+print('Conjunto de datos:', cadena)
+
 print('Media de la tasa de clasificación:', tasa_class_media)
 
 print('Media de la tasa de reducción:', tasa_red_media)
 
-print('Media del fitness:', evaluacion_media)
+print('Media del fitness train:', evaluacion_media)
+
+print('Media del fitness test:', evaluacion_test_media)
 
 print('Media del accuracy:', accuracy_media)
 

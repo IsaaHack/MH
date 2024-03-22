@@ -1,6 +1,30 @@
-import numpy as np
+import subprocess
+
+try:
+    import numpy as np
+except ImportError:
+    print("NumPy no está instalado. Instalando NumPy...")
+    try:
+        subprocess.check_call(["pip", "install", "numpy"])
+        import numpy as np
+        print("NumPy se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar NumPy. Por favor, instálalo manualmente.")
+
+
+
 from abc import ABC, abstractmethod
-import funciones
+
+try:
+    import scipy.spatial.distance as sp
+except ImportError:
+    print("SciPy no está instalado. Instalando SciPy...")
+    try:
+        subprocess.check_call(["pip", "install", "scipy"])
+        import scipy.spatial.distance as sp
+        print("SciPy se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar SciPy. Por favor, instálalo manualmente.")
 
 SQRT_03 = np.sqrt(0.3)
 
@@ -19,42 +43,47 @@ class Genetic_Model(ABC):
     
     @abstractmethod
     def predict(self, X_test):
-        y_pred = np.array([self._predict(x, self.weights) for x in X_test])
-        return y_pred
+        return np.apply_along_axis(self._predict, 1, X_test, self.weights)
 
     @abstractmethod
     def _predict(self, x, weights):
-        distances = np.sqrt(np.sum((((self.X_train - x)) ** 2)* weights , axis=1))
-        return self.y_train[np.argmin(distances)]
+        w = np.copy(weights)
+        w[w < 0.1] = 0
+        X = np.vstack((self.X_train, x))
+        distances = sp.squareform(sp.pdist(X, 'euclidean', w=w))[-1]
+        distances[-1] = np.inf
+        index_prediction = np.argmin(distances)
+        prediction_label = self.y_train[index_prediction]
+        return prediction_label
+    
+    @abstractmethod
+    def _red_rate(self, weights):
+        return 100*np.sum(weights < 0.1)/weights.shape[0]
+    
+    @abstractmethod
+    def red_rate(self):
+        return self._red_rate(self.weights)
+    
+    @abstractmethod
+    def _clas_rate(self, weights):
+        w = np.copy(weights)
+        w[w < 0.1] = 0
+        distances = sp.squareform(sp.pdist(self.X_train, 'euclidean', w=w))
+        ii = np.arange(self.X_train.shape[0])
+        distances[ii, ii] = np.inf
+        index_predictions = np.argmin(distances, axis=1)
+        predictions_labels = self.y_train[index_predictions]
 
-    @abstractmethod
-    def _predict_without_x(self, x, weights):
-        distances = np.sqrt(np.sum((((self.X_train - x)) ** 2)* weights , axis=1))
-        nearest = np.argsort(distances)[1:2]
-        return self.y_train[nearest[0]]
+        return 100*np.mean(predictions_labels == self.y_train)
     
     @abstractmethod
-    def _redRate(self, weights):
-        contador = 0
-        contador += np.sum(weights < 0.1)
-        return 100*contador/weights.shape[0]
-    
-    @abstractmethod
-    def redRate(self):
-        return self._redRate(self.weights)
-    
-    @abstractmethod
-    def _clasRate(self, weights):
-        y_pred = np.apply_along_axis(self._predict_without_x, 1, self.X_train, weights)
-        return 100*np.mean(y_pred == self.y_train)
-    
-    @abstractmethod
-    def clasRate(self):
-        return self._clasRate(self.weights)
+    def clas_rate(self):
+        return self._clas_rate(self.weights)
     
     @abstractmethod
     def _fitness(self, weights, alpha=0.75):
-        return self._clasRate(weights) * alpha + self._redRate(weights) * (1-alpha)
+        return self._clas_rate(weights) * alpha + self._red_rate(weights) * (1-alpha)
+    
     
     @abstractmethod
     def fitness(self, clasRate, redRate, alpha=0.75):
@@ -62,8 +91,8 @@ class Genetic_Model(ABC):
     
     @abstractmethod
     def global_score(self, alpha=0.75):
-        clasRate = self.clasRate(self.weights)
-        redRate = self.redRate(self.weights)
+        clasRate = self.clas_rate(self.weights)
+        redRate = self.red_rate(self.weights)
         return clasRate, redRate, self.fitness(clasRate, redRate, alpha)
     
     @abstractmethod
@@ -112,25 +141,26 @@ class KNN(Genetic_Model):
     def _most_common(self, arr: np.array):
         return max(set(arr), key=list(arr).count)
     
-    def _redRate(self, weights):
-        return super()._redRate(weights)
+    def _red_rate(self, weights):
+        return super()._red_rate(weights)
     
-    def redRate(self):
-        return super().redRate()
+    def red_rate(self):
+        return super().red_rate()
     
-    def _clasRate(self, weights):
-        return super()._clasRate(weights)
+    def _clas_rate(self, weights):
+        y_pred = np.apply_along_axis(self._predict_without_x, 1, self.X_train, weights)
+        return 100*np.mean(y_pred == self.y_train)
     
-    def clasRate(self):
-        return super().clasRate()
+    def clas_rate(self):
+        return super().clas_rate()
     
-    def _fitness(self, weights, alpha=1):
+    def _fitness(self, weights, alpha=0.75):
         return super()._fitness(weights, alpha)
     
-    def fitness(self, clasRate, redRate, alpha=1):
+    def fitness(self, clasRate, redRate, alpha=0.75):
         return super().fitness(clasRate, redRate, alpha)
     
-    def global_score(self, alpha=1):
+    def global_score(self, alpha=0.75):
         return super().global_score(alpha)
     
     def accuracy(self, X_test, y_test):
@@ -150,28 +180,28 @@ class Relief(Genetic_Model):
         self.y_train = y_train
         self.features = np.empty(X_train.shape[1], dtype=int)
         self.weights = np.zeros(X_train.shape[1])
-        self.true_weights = np.zeros(X_train.shape[1])
         self._fit()
 
     def _fit(self):
+        distances = sp.squareform(sp.pdist(self.X_train, 'euclidean'))
+        ii = np.arange(self.X_train.shape[0])
+        distances[ii, ii] = np.inf
+        all_index = np.argsort(distances, axis=1)
+
         for i in range(len(self.X_train)):
-            distances = np.sqrt(np.sum((self.X_train - self.X_train[i]) ** 2, axis=1))
-            indices = np.argsort(distances)[1:]
             nearest_hit = -1
 
-            n_hits = indices[self.y_train[i] == self.y_train[indices]]
+            n_hits = all_index[i][self.y_train[i] == self.y_train[all_index[i]]]
             if n_hits.size > 0:
                 nearest_hit = n_hits[0]
-            nearest_miss = indices[self.y_train[i] != self.y_train[indices]][0]
+            nearest_miss = all_index[i][self.y_train[i] != self.y_train[all_index[i]]][0]
 
             if nearest_hit != -1:
                 self.weights += np.abs(self.X_train[i] - self.X_train[nearest_miss]) - np.abs(self.X_train[i] - self.X_train[nearest_hit])
         
         max_weight = np.max(self.weights)
-        self.weights = np.maximum(self.weights / max_weight, 0) 
-        self.true_weights = np.copy(self.weights)
-        self.features = np.argsort(self.true_weights)[::-1]
-        self.weights[self.weights < 0.1] = 0
+        self.weights = np.maximum(self.weights / max_weight, 0)
+        self.features = np.argsort(self.weights)[::-1]
 
     def predict(self, X_test):
         return super().predict(X_test)
@@ -179,20 +209,17 @@ class Relief(Genetic_Model):
     def _predict(self, x, weights):
         return super()._predict(x, weights)
     
-    def _predict_without_x(self, x, weights):
-        return super()._predict_without_x(x, weights)
+    def _red_rate(self, weights):
+        return super()._red_rate(weights)
     
-    def _redRate(self, weights):
-        return super()._redRate(weights)
+    def red_rate(self):
+        return super().red_rate()
     
-    def redRate(self):
-        return super().redRate()
+    def _clas_rate(self, weights):
+        return super()._clas_rate(weights)
     
-    def _clasRate(self, weights):
-        return super()._clasRate(weights)
-    
-    def clasRate(self):
-        return super().clasRate()
+    def clas_rate(self):
+        return super().clas_rate()
     
     def _fitness(self, weights, alpha=0.75):
         return super()._fitness(weights, alpha)
@@ -222,12 +249,12 @@ class BL(Genetic_Model):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.random.uniform(0, 1, X_train.shape[1])
+        self.weights[self.weights < 0.1] = 0
         self.features = np.empty(X_train.shape[1], dtype=int)
         self.MAX_ITER : int = 20*self.weights.shape[0]
         self._fit(evaluations)
 
     def _fit(self, evaluations=15000):
-        old_weights = np.copy(self.weights)
         actual_evaluation = self._fitness(self.weights)
         iterations : int = 0
         n_eval : int = 0
@@ -240,15 +267,20 @@ class BL(Genetic_Model):
                 new_evaluation = self._fitness(neighbor)
                 iterations += 1
                 n_eval += 1
+
+                if new_evaluation > actual_evaluation:
+                    iterations = 0
+
                 while new_evaluation > actual_evaluation and n_eval < evaluations:
                     actual_evaluation = new_evaluation
                     self.weights = np.copy(neighbor)
-                    iterations = 0
                     neighbor = self._get_neighbor(mut)
                     new_evaluation = self._fitness(neighbor)
                     n_eval += 1
 
-                if n_eval >= evaluations or iterations >= self.MAX_ITER:
+                if n_eval >= evaluations or iterations >= self.MAX_ITER or iterations == 0:
+                    if new_evaluation > actual_evaluation:
+                        self.weights = np.copy(neighbor)
                     break
                 
 
@@ -257,14 +289,9 @@ class BL(Genetic_Model):
 
     def _get_neighbor(self, mutation_order):
         mutation = np.random.normal(0, SQRT_03)
-        
         neighbor = np.copy(self.weights)
 
-        neighbor[mutation_order] += mutation
-
-        neighbor[neighbor < 0.1] = 0
-
-        neighbor[neighbor > 1] = 1
+        neighbor[mutation_order] = np.clip(neighbor[mutation_order] + mutation, 0, 1)
 
         return neighbor
     
@@ -274,20 +301,17 @@ class BL(Genetic_Model):
     def _predict(self, x, weights):
         return super()._predict(x, weights)
     
-    def _predict_without_x(self, x, weights):
-        return super()._predict_without_x(x, weights)
+    def _red_rate(self, weights):
+        return super()._red_rate(weights)
     
-    def _redRate(self, weights):
-        return super()._redRate(weights)
+    def red_rate(self):
+        return super().red_rate()
     
-    def redRate(self):
-        return super().redRate()
+    def _clas_rate(self, weights):
+        return super()._clas_rate(weights)
     
-    def _clasRate(self, weights):
-        return super()._clasRate(weights)
-    
-    def clasRate(self):
-        return super().clasRate()
+    def clas_rate(self):
+        return super().clas_rate()
     
     def fitness(self, clasRate, redRate, alpha=0.75):
         return super().fitness(clasRate, redRate, alpha)
