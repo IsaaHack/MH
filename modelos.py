@@ -269,19 +269,21 @@ class BL(Genetic_Model):
                 n_eval += 1
 
                 if new_evaluation > actual_evaluation:
-                    iterations = 0
-
-                while new_evaluation > actual_evaluation and n_eval < evaluations:
                     actual_evaluation = new_evaluation
                     self.weights = np.copy(neighbor)
-                    neighbor = self._get_neighbor(mut)
-                    new_evaluation = self._fitness(neighbor)
-                    n_eval += 1
+                    iterations = 0
 
-                if n_eval >= evaluations or iterations >= self.MAX_ITER or iterations == 0:
-                    if new_evaluation > actual_evaluation:
-                        self.weights = np.copy(neighbor)
-                    break
+                # while new_evaluation > actual_evaluation and n_eval < evaluations:
+                #     actual_evaluation = new_evaluation
+                #     self.weights = np.copy(neighbor)
+                #     neighbor = self._get_neighbor(mut)
+                #     new_evaluation = self._fitness(neighbor)
+                #     n_eval += 1
+
+                # if n_eval >= evaluations or iterations >= self.MAX_ITER or iterations == 0:
+                #     if new_evaluation > actual_evaluation:
+                #         self.weights = np.copy(neighbor)
+                #     break
                 
 
         self.features = np.argsort(self.weights)[::-1]

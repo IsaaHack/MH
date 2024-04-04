@@ -22,8 +22,29 @@ except ImportError:
     except subprocess.CalledProcessError:
         print("Error al instalar arff. Por favor, instálalo manualmente.")
 
+try:
+    import pandas as pd
+except ImportError:
+    print("Pandas no está instalado. Instalando Pandas...")
+    try:
+        subprocess.check_call(["pip", "install", "pandas"])
+        import pandas as pd
+        print("Pandas se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar Pandas. Por favor, instálalo manualmente.")
+
+try:
+    from sklearn.preprocessing import MinMaxScaler
+except ImportError:
+    print("scikit-learn no está instalado. Instalando scikit-learn...")
+    try:
+        subprocess.check_call(["pip", "install", "scikit-learn"])
+        from sklearn.preprocessing import MinMaxScaler
+        print("scikit-learn se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar scikit-learn. Por favor, instálalo manualmente.")
+
 import time
-import modelos
 import funciones
 
 print('Introduce la base de datos a utilizar [Opciones: BreastCancer[DEFAULT][1], Ecoli[2], Parkinson[3]]:')
@@ -40,22 +61,24 @@ elif database != '':
     print('Base de datos no válida')
     exit()
 
-print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3]):')
+print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], ALL[4]):')
 model_type = input()
 
 if model_type == 'KNN' or model_type == '' or model_type == '1':
     model_type = 'KNN'
 elif model_type == 'Relief' or model_type == '2':
     model_type = 'Relief'
-elif model_type != 'BL' or model_type != '3':
+elif model_type == 'BL' or model_type == '3':
     model_type = 'BL'
+elif model_type == 'ALL' or model_type == '4':
+    model_type = 'ALL'
 elif model_type != '':
     print('Modelo no válido')
     exit()
 
 k = 1
 seed = 7
-if(model_type == 'KNN'):
+if(model_type == 'KNN' or model_type == 'ALL'):
     print('Introduce el valor de k [DEFAULT=1]:')
     k = input()
     if k == '':
@@ -66,13 +89,17 @@ if(model_type == 'KNN'):
     if k < 1:
         print('Valor de k no válido')
         exit()
-elif model_type == 'BL':
+
+if model_type == 'BL' or model_type == 'ALL':
     print('Introduce el valor de la semilla [DEFAULT=7]:')
     seed_i = input()
     if seed_i == '':
         seed = 7
     else:
         seed = int(seed_i)
+
+print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
+guardar = input().lower()
 
 time_total_start = time.time()
 
@@ -110,7 +137,6 @@ X5 = np.array(data5[:, :-1], dtype=float)
 y5 = data5[:, -1]
 
 # Normalizar los datos
-from sklearn.preprocessing import MinMaxScaler
 
 scaler = MinMaxScaler()
 
@@ -124,142 +150,47 @@ X3 = X[X1.shape[0] + X2.shape[0]:X1.shape[0] + X2.shape[0] + X3.shape[0]]
 X4 = X[X1.shape[0] + X2.shape[0] + X3.shape[0]:X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]]
 X5 = X[X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]:]
 
-# Realizar la validación cruzada
-tasa_class_media = 0
-tasa_red_media = 0
-evaluacion_media = 0
-evaluacion_test_media = 0
-accuracy_media = 0
-tiempo_medio = 0
-np.random.seed(seed)
-for i in range(5):
-    # Unir los conjuntos de datos
-    if(i == 0):
-        X_train = np.concatenate((X2, X3, X4, X5))
-        y_train = np.concatenate((y2, y3, y4, y5))
-        X_test = X1
-        y_test = y1
-    elif(i == 1):
-        X_train = np.concatenate((X1, X3, X4, X5))
-        y_train = np.concatenate((y1, y3, y4, y5))
-        X_test = X2
-        y_test = y2
-    elif(i == 2):
-        X_train = np.concatenate((X1, X2, X4, X5))
-        y_train = np.concatenate((y1, y2, y4, y5))
-        X_test = X3
-        y_test = y3
-    elif(i == 3):
-        X_train = np.concatenate((X1, X2, X3, X5))
-        y_train = np.concatenate((y1, y2, y3, y5))
-        X_test = X4
-        y_test = y4
-    elif(i == 4):
-        X_train = np.concatenate((X1, X2, X3, X4))
-        y_train = np.concatenate((y1, y2, y3, y4))
-        X_test = X5
-        y_test = y5
+# 5-fold cross-validation
 
-    # Entrenar el modelo
+if model_type == 'ALL':
+    models = ['KNN', 'Relief', 'BL']
+else:
+    models = [model_type]
 
-    time_start = time.time()
+for m in models:
+    print('Dataset:', cadena)
+    print('Modelo:', m)
+    if m == 'KNN':
+        print('k:', k)
+    elif m == 'BL':
+        print('Semilla:', seed)
 
-    if model_type == 'KNN':
-        model = modelos.KNN(k)
-    elif model_type == 'Relief':
-        model = modelos.Relief()
-    elif model_type == 'BL':
-        model = modelos.BL(np.random.randint(0, 1000))
+    df, pesos = funciones.fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, m, seed, k)
 
-    model.fit(X_train, y_train)
-
-    # Evaluar el modelo
-
-    tasa_red = model.red_rate()
-    tasa_red_media += tasa_red
-
-    tasa_clas = model.clas_rate()
-    tasa_class_media += tasa_clas
-
-    evaluacion = model.fitness(clasRate=tasa_clas, redRate=tasa_red)
-    evaluacion_media += evaluacion
-
-    accuracy = model.accuracy(X_test, y_test)
-    accuracy_media += accuracy
-
-    evaluacion_test = funciones.evaluationFunction(accuracy, tasa_red)
-    evaluacion_test_media += evaluacion_test
-
-    time_end = time.time()
-    tiempo_medio += time_end - time_start
+    print('Pesos:')
+    print(pesos)
 
     print()
 
-    print('----------------------Partición', i+1,'----------------------')
+    print('Resultados:')
+    print(df)
 
-    print('Modelo:', model_type)
+    print()
 
-    print('Conjunto de datos:', cadena)
+    print('Estadísticas:')
 
-    if model_type == 'BL':
-        print('Semilla:', model.seed)
+    print(df.describe().loc[['mean', 'std', 'min', 'max']])
 
-    print('Tasa de clasificación:', tasa_clas)
+    if guardar == 's':
+        print()
+        print('Guardando resultados en archivo CSV...')
+        df.to_csv('./results/'+cadena+'_'+m+'.csv', index=False)
+        print('Resultados guardados correctamente')
+        print()
 
-    print('Tasa de reducción:', tasa_red)
 
-    print('Fitness train:', evaluacion)
-
-    print('Fitness test:', evaluacion_test)
-
-    print('Accuracy:', accuracy)
-
-    print('Tiempo', time_end - time_start)
-
-    formatted_output = ','.join(map(str, model.weights))
-
-    print('Pesos:', formatted_output)
-
-    if model_type == 'Relief' or model_type == 'BL':
-        features_importantes = np.array(feature_names)[model.features]
-        # Seleccionar solo las tres primeras características importantes
-        primeras_tres_features_importantes = features_importantes[:3]
-        # Seleccionar solo las tres últimas características importantes
-        ultimas_tres_features_importantes = features_importantes[-3:]
-
-        print('Características más importantes [de mas importante a menos]: ', primeras_tres_features_importantes)
-        print('Características menos importantes [de mas importante a menos]: ', ultimas_tres_features_importantes)
-            
-
-# Calcular las medias
-tasa_class_media /= 5
-tasa_red_media /= 5
-evaluacion_media /= 5
-evaluacion_test_media /= 5
-accuracy_media /= 5
-tiempo_medio /= 5
 
 time_total_end = time.time()
-
-print()
-
-print('----------------------Resultados Finales----------------------')
-
-print('Modelo:', model_type)
-
-print('Conjunto de datos:', cadena)
-
-print('Media de la tasa de clasificación:', tasa_class_media)
-
-print('Media de la tasa de reducción:', tasa_red_media)
-
-print('Media del fitness train:', evaluacion_media)
-
-print('Media del fitness test:', evaluacion_test_media)
-
-print('Media del accuracy:', accuracy_media)
-
-print('Media del tiempo:', tiempo_medio)
 
 print()
 
