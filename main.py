@@ -1,4 +1,5 @@
 import subprocess
+import os
 
 try:
     import numpy as np
@@ -184,8 +185,13 @@ for m in models:
     if guardar == 's':
         print()
         print('Guardando resultados en archivo CSV...')
-        df.to_csv('./results/'+cadena+'_'+m+'.csv', index=False)
-        print('Resultados guardados correctamente')
+        if not os.path.exists('./results'):
+            os.makedirs('./results')
+        try:
+            df.to_csv('./results/'+cadena+'_'+m+'.csv', index=False)
+            print('Resultados guardados correctamente')
+        except:
+            print('Error al guardar los resultados')
         print()
 
 
