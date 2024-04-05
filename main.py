@@ -62,6 +62,7 @@ elif database != '':
     print('Base de datos no válida')
     exit()
 
+ALL_MODELS = ['KNN', 'Relief', 'BL']
 print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], ALL[4]):')
 model_type = input()
 
@@ -154,7 +155,7 @@ X5 = X[X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]:]
 # 5-fold cross-validation
 
 if model_type == 'ALL':
-    models = ['KNN', 'Relief', 'BL']
+    models = ALL_MODELS
 else:
     models = [model_type]
 
