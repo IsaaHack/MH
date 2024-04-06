@@ -185,13 +185,14 @@ class Relief(Genetic_Model):
 
     def _fit(self):
         distances = sp.squareform(sp.pdist(self.X_train, 'euclidean'))
-        distances[np.diag_indices(distances.shape[0])] = np.inf
+        #distances[np.diag_indices(distances.shape[0])] = np.inf
         all_index = np.argsort(distances, axis=1)
 
         for i in range(len(self.X_train)):
             nearest_hit = -1
 
             n_hits = all_index[i][self.y_train[i] == self.y_train[all_index[i]]]
+            n_hits = n_hits[distances[i][n_hits] != 0]
             if n_hits.size > 0:
                 nearest_hit = n_hits[0]
             nearest_miss = all_index[i][self.y_train[i] != self.y_train[all_index[i]]][0]
