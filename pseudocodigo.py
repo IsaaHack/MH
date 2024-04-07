@@ -84,6 +84,12 @@ def fitness(X, y, pesos, alfa=0.75):
 def fitness2(aciertos, tasa_red, alfa=0.75):
     return alfa*aciertos + (1-alfa)*tasa_red
 
+def fitness(X_train, y_train, X_test, y_test, pesos, alfa=0.75):
+    predicciones = clasificador1NN(X_train, y_train, X_test, pesos)
+    aciertos = accuracy(y_test, predicciones)
+    tasa_red = tasa_reduccion(pesos)
+    return alfa*aciertos + (1-alfa)*tasa_red
+
 def tasa_clasificacion(X, y, pesos):
     # Calcular matriz de distancias
     distancias = matrizCuadradaDistancias(X, pesos)
@@ -106,7 +112,7 @@ def tasa_clasificacion(X, y, pesos):
 def tasa_reduccion(pesos):
     cont = 0
     for p in pesos:
-        if p <= 0.1:
+        if p >= 0.1:
             cont += 1
 
     return 100*(cont / len(pesos))
@@ -136,6 +142,7 @@ def fit_Relief(X, y):
     
     # Calcular matriz de distancias
     distancias = matrizCuadradaDistancias(X, pesos)
+    distancias[distancias == 0] = np.inf
     # Ordenar indices de distancias
     indices_ord = ordenarPorDistancia(distancias, eje='fila')
 
@@ -144,7 +151,6 @@ def fit_Relief(X, y):
         
         # Filtrar amigos y quitamos los que tengan distancia 0
         amigos = filtrarAmigos(i, indices_ord, y)
-        amigos = quitarDistanciaCero(i, amigos, distancias)
 
         # Si hay amigos, el amigo cercano es el primero
         if len(amigos) > 0:
@@ -154,7 +160,7 @@ def fit_Relief(X, y):
         enemigo_cercano = filtrarEnemigos(i, indices_ord, y)
 
         # Si hay amigos, actualizamos los pesos
-        if amigo_cercano != -1:
+        if amigo_cercano != -1 and distancias[i][amigo_cercano] != np.inf:
             pesos += abs(X[i] - X[amigo_cercano]) - abs(X[i] - X[enemigo_cercano])
 
     # Normalizar pesos y ponerlos en el rango [0, 1]
@@ -208,10 +214,12 @@ def fit_BL(X, y, max_evaluaciones, semilla=7):
 
     return pesos
 
-def predict(X_train, y_test, X_test, pesos=None, k=1):
+def clasificador1NN(X_train, y_test, X_test, pesos=None, k=1):
     # Inicializar pesos a 1 si no se especifican simulando un KNN normal
     if pesos is None:
-        pesos = np.ones(n_columnas(X_train))
+        pesos = []
+        for i in range(n_columnas(X_train)):
+            pesos.append(1)
 
     predictions = np.array(n_columnas(X_test), dtype=str)
 
@@ -223,13 +231,14 @@ def predict(X_train, y_test, X_test, pesos=None, k=1):
 
         indices_ord = ordenarPorDistancia(distancias, eje='fila')
 
-        k_indices = indices_ord[:k]
+        # Si elegimos el numero 1, el vecino más cercano es el segundo porque el primero es el mismo
+        indice_cercano = indices_ord[1]
 
-        # Obtener las clases de los k vecinos más cercanos
-        clases = y_test[k_indices]
+        # Asignar la clase del vecino más cercano
+        clase = y_test[indice_cercano]
 
-        # Obtener la clase más común
-        predictions[i] = max(set(clases), key=clases.count)
+        # Asignar la clase al conjunto de predicciones
+        predictions[i] = clase
 
     return predictions
 
@@ -285,7 +294,7 @@ def fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, model_type, seed
         elif model_type == 'Relief':
             pesos = fit_Relief(X_train, y_train)
         elif model_type == 'BL':
-            pesos = fit_BL(X_train, y_train, max_evaluaciones=15000, semilla=seed)
+            pesos = fit_BL(X_train, y_train, max_evaluaciones=15000, semilla=np.random.randint(0, 1000))
         else:
             raise ValueError("El modelo no es válido.")
 
@@ -297,7 +306,7 @@ def fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, model_type, seed
 
         fitness_train = fitness(X_train, y_train, pesos, 0.75)
 
-        acierto = accuracy(y_test, predict(X_train, y_test, X_test, pesos, k))
+        acierto = accuracy(y_test, clasificador1NN(X_train, y_test, X_test, pesos, k))
 
         fitness_test = fitness2(acierto, tasa_red, 0.75)
 
