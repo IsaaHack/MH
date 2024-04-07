@@ -2,6 +2,12 @@
 
 Este programa te permite seleccionar una base de datos y un modelo para su análisis. A continuación, se presenta un manual detallado para su uso:
 
+## Ejecutar el programa
+
+```
+python3 ./main.py
+```
+
 ## Inicio del Programa:
 - Al iniciar el programa, verás el siguiente mensaje:
 ```
