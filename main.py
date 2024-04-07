@@ -48,158 +48,163 @@ except ImportError:
 import time
 import funciones
 
-print('Introduce la base de datos a utilizar [Opciones: BreastCancer[DEFAULT][1], Ecoli[2], Parkinson[3]]:')
-database = input()
-cadena = 'breast-cancer'
-
-if database == 'BreastCancer' or database == '' or database == '1':
+def main():
+    print('Introduce la base de datos a utilizar [Opciones: BreastCancer[DEFAULT][1], Ecoli[2], Parkinson[3]]:')
+    database = input()
     cadena = 'breast-cancer'
-elif database == 'Ecoli' or database == '2':
-    cadena = 'ecoli'
-elif database == 'Parkinson' or database == '3':
-    cadena = 'parkinsons'
-elif database != '':
-    print('Base de datos no válida')
-    exit()
 
-ALL_MODELS = ['KNN', 'Relief', 'BL']
-print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], ALL[4]):')
-model_type = input()
-
-if model_type == 'KNN' or model_type == '' or model_type == '1':
-    model_type = 'KNN'
-elif model_type == 'Relief' or model_type == '2':
-    model_type = 'Relief'
-elif model_type == 'BL' or model_type == '3':
-    model_type = 'BL'
-elif model_type == 'ALL' or model_type == '4':
-    model_type = 'ALL'
-elif model_type != '':
-    print('Modelo no válido')
-    exit()
-
-k = 1
-seed = 7
-if(model_type == 'KNN' or model_type == 'ALL'):
-    print('Introduce el valor de k [DEFAULT=1]:')
-    k = input()
-    if k == '':
-        k = 1
-    elif k != '':
-        k = int(k)
-    
-    if k < 1:
-        print('Valor de k no válido')
+    if database == 'BreastCancer' or database == '' or database == '1':
+        cadena = 'breast-cancer'
+    elif database == 'Ecoli' or database == '2':
+        cadena = 'ecoli'
+    elif database == 'Parkinson' or database == '3':
+        cadena = 'parkinsons'
+    elif database != '':
+        print('Base de datos no válida')
         exit()
 
-if model_type == 'BL' or model_type == 'ALL':
-    print('Introduce el valor de la semilla [DEFAULT=7]:')
-    seed_i = input()
-    if seed_i == '':
-        seed = 7
+    ALL_MODELS = ['KNN', 'Relief', 'BL']
+    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], ALL[4]):')
+    model_type = input()
+
+    if model_type == 'KNN' or model_type == '' or model_type == '1':
+        model_type = 'KNN'
+    elif model_type == 'Relief' or model_type == '2':
+        model_type = 'Relief'
+    elif model_type == 'BL' or model_type == '3':
+        model_type = 'BL'
+    elif model_type == 'ALL' or model_type == '4':
+        model_type = 'ALL'
+    elif model_type != '':
+        print('Modelo no válido')
+        exit()
+
+    k = 1
+    seed = 7
+    if(model_type == 'KNN' or model_type == 'ALL'):
+        print('Introduce el valor de k [DEFAULT=1]:')
+        k = input()
+        if k == '':
+            k = 1
+        elif k != '':
+            k = int(k)
+        
+        if k < 1:
+            print('Valor de k no válido')
+            exit()
+
+    if model_type == 'BL' or model_type == 'ALL':
+        print('Introduce el valor de la semilla [DEFAULT=7]:')
+        seed_i = input()
+        if seed_i == '':
+            seed = 7
+        else:
+            seed = int(seed_i)
+
+    print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
+    guardar = input().lower()
+
+    time_total_start = time.time()
+
+    # Cargar los 5 conjuntos de datos
+    data1 = arff.load(open('./data/'+cadena+'_1.arff', 'r'))
+    feature_names = [i[0] for i in data1['attributes']]
+    data1 = np.array(data1['data'])
+
+    data2 = arff.load(open('./data/'+cadena+'_2.arff', 'r'))
+    data2 = np.array(data2['data'])
+
+    data3 = arff.load(open('./data/'+cadena+'_3.arff', 'r'))
+    data3 = np.array(data3['data'])
+
+    data4 = arff.load(open('./data/'+cadena+'_4.arff', 'r'))
+    data4 = np.array(data4['data'])
+
+    data5 = arff.load(open('./data/'+cadena+'_5.arff', 'r'))
+    data5 = np.array(data5['data'])
+
+    # Separar los datos en características y etiquetas
+    X1 = np.array(data1[:, :-1], dtype=float)
+    y1 = data1[:, -1]
+
+    X2 = np.array(data2[:, :-1], dtype=float)
+    y2 = data2[:, -1]
+
+    X3 = np.array(data3[:, :-1], dtype=float)
+    y3 = data3[:, -1]
+
+    X4 = np.array(data4[:, :-1], dtype=float)
+    y4 = data4[:, -1]
+
+    X5 = np.array(data5[:, :-1], dtype=float)
+    y5 = data5[:, -1]
+
+    # Normalizar los datos
+
+    scaler = MinMaxScaler()
+
+    X = np.concatenate((X1, X2, X3, X4, X5), axis=0)
+
+    X = scaler.fit_transform(X)
+
+    X1 = X[:X1.shape[0]]
+    X2 = X[X1.shape[0]:X1.shape[0] + X2.shape[0]]
+    X3 = X[X1.shape[0] + X2.shape[0]:X1.shape[0] + X2.shape[0] + X3.shape[0]]
+    X4 = X[X1.shape[0] + X2.shape[0] + X3.shape[0]:X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]]
+    X5 = X[X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]:]
+
+    # 5-fold cross-validation
+
+    if model_type == 'ALL':
+        models = ALL_MODELS
     else:
-        seed = int(seed_i)
+        models = [model_type]
 
-print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
-guardar = input().lower()
+    for m in models:
+        print('Dataset:', cadena)
+        print('Modelo:', m)
+        if m == 'KNN':
+            print('k:', k)
+        elif m == 'BL':
+            print('Semilla:', seed)
 
-time_total_start = time.time()
+        df, pesos = funciones.fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, m, seed, k)
 
-# Cargar los 5 conjuntos de datos
-data1 = arff.load(open('./data/'+cadena+'_1.arff', 'r'))
-feature_names = [i[0] for i in data1['attributes']]
-data1 = np.array(data1['data'])
+        print('Pesos:')
+        print(pesos)
 
-data2 = arff.load(open('./data/'+cadena+'_2.arff', 'r'))
-data2 = np.array(data2['data'])
+        print()
 
-data3 = arff.load(open('./data/'+cadena+'_3.arff', 'r'))
-data3 = np.array(data3['data'])
+        print('Resultados:')
+        print(df)
 
-data4 = arff.load(open('./data/'+cadena+'_4.arff', 'r'))
-data4 = np.array(data4['data'])
+        print()
 
-data5 = arff.load(open('./data/'+cadena+'_5.arff', 'r'))
-data5 = np.array(data5['data'])
+        print('Estadísticas:')
 
-# Separar los datos en características y etiquetas
-X1 = np.array(data1[:, :-1], dtype=float)
-y1 = data1[:, -1]
+        print(df.describe().loc[['mean', 'std', 'min', 'max']])
 
-X2 = np.array(data2[:, :-1], dtype=float)
-y2 = data2[:, -1]
+        if guardar == 's':
+            print()
+            print('Guardando resultados en archivo CSV...')
+            if not os.path.exists('./results'):
+                os.makedirs('./results')
+            try:
+                df.to_csv('./results/'+cadena+'_'+m+'.csv', index=False)
+                print('Resultados guardados correctamente')
+            except:
+                print('Error al guardar los resultados')
+            print()
 
-X3 = np.array(data3[:, :-1], dtype=float)
-y3 = data3[:, -1]
 
-X4 = np.array(data4[:, :-1], dtype=float)
-y4 = data4[:, -1]
 
-X5 = np.array(data5[:, :-1], dtype=float)
-y5 = data5[:, -1]
-
-# Normalizar los datos
-
-scaler = MinMaxScaler()
-
-X = np.concatenate((X1, X2, X3, X4, X5), axis=0)
-
-X = scaler.fit_transform(X)
-
-X1 = X[:X1.shape[0]]
-X2 = X[X1.shape[0]:X1.shape[0] + X2.shape[0]]
-X3 = X[X1.shape[0] + X2.shape[0]:X1.shape[0] + X2.shape[0] + X3.shape[0]]
-X4 = X[X1.shape[0] + X2.shape[0] + X3.shape[0]:X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]]
-X5 = X[X1.shape[0] + X2.shape[0] + X3.shape[0] + X4.shape[0]:]
-
-# 5-fold cross-validation
-
-if model_type == 'ALL':
-    models = ALL_MODELS
-else:
-    models = [model_type]
-
-for m in models:
-    print('Dataset:', cadena)
-    print('Modelo:', m)
-    if m == 'KNN':
-        print('k:', k)
-    elif m == 'BL':
-        print('Semilla:', seed)
-
-    df, pesos = funciones.fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, m, seed, k)
-
-    print('Pesos:')
-    print(pesos)
+    time_total_end = time.time()
 
     print()
 
-    print('Resultados:')
-    print(df)
-
-    print()
-
-    print('Estadísticas:')
-
-    print(df.describe().loc[['mean', 'std', 'min', 'max']])
-
-    if guardar == 's':
-        print()
-        print('Guardando resultados en archivo CSV...')
-        if not os.path.exists('./results'):
-            os.makedirs('./results')
-        try:
-            df.to_csv('./results/'+cadena+'_'+m+'.csv', index=False)
-            print('Resultados guardados correctamente')
-        except:
-            print('Error al guardar los resultados')
-        print()
+    print('Tiempo total:', time_total_end - time_total_start)
 
 
-
-time_total_end = time.time()
-
-print()
-
-print('Tiempo total:', time_total_end - time_total_start)
+if __name__ == '__main__':
+    main()
 
