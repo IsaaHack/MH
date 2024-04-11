@@ -24,6 +24,39 @@ def getEuclideanDistances(X, x):
 def getWeightedEuclideanDistances(X : np.array, W : np.array, x):
     return np.sqrt(np.sum(W * (X - x) ** 2, axis=1))
 
+def crossoverCA(population : np.ndarray[float], crossover_rate : float):
+    estimated_crossovers = int(crossover_rate * len(population) / 2)
+    alphas = np.random.uniform(0, 1, estimated_crossovers*2)
+    alphas = alphas.repeat(population.shape[1]).reshape(estimated_crossovers*2, population.shape[1])
+
+    population[:2*estimated_crossovers:2] = alphas[::2] * population[:2*estimated_crossovers:2] + (1 - alphas[::2]) * population[1:2*estimated_crossovers:2]
+    population[1:2*estimated_crossovers:2] = alphas[1::2] * population[:2*estimated_crossovers:2] + (1 - alphas[1::2]) * population[1:2*estimated_crossovers:2]
+
+    #population[:2*estimated_crossovers] = parents
+
+    # for i in range(estimated_crossovers):
+    #     alpha = alphas[i][0]
+    #     parent1 = population[2*i]
+    #     parent2 = population[2*i+1]
+    #     child1 = alpha * parent1 + (1 - alpha) * parent2
+    #     child2 = alpha * parent2 + (1 - alpha) * parent1
+    #     population[2*i] = child1
+    #     population[2*i+1] = child2
+
+def crossoverBLX(population : np.ndarray[float], crossover_rate : float, alpha : float = 0.3):
+    estimated_crossovers = int(crossover_rate * len(population) / 2)
+    
+    for i in range(estimated_crossovers):
+        c_max = np.maximum(population[2*i], population[2*i+1])
+        c_min = np.minimum(population[2*i], population[2*i+1])
+
+        I = c_max - c_min
+
+        population[2*i] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+        population[2*i+1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+
+
+
 def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : np.ndarray, X5 : np.ndarray , y1 : np.ndarray, y2 : np.ndarray, y3 : np.ndarray, y4 : np.ndarray, y5 : np.ndarray, model_type : str, seed : int, k : int):
     claves = ['Partición', 'Tasa de clasificación', 'Tasa de reducción', 'Fitness train', 'Fitness test', 'Accuracy', 'Tiempo de ejecución']
     resultados = pd.DataFrame()
@@ -67,10 +100,17 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
             model = modelos.Relief()
         elif model_type == 'BL':
             model = modelos.BL(np.random.randint(0, 1000))
+        elif model_type == 'AGG-AC' or model_type == 'AGG-BLX':
+            model = modelos.AGG(np.random.randint(0, 1000))
         else:
             raise ValueError("El modelo no es válido.")
 
-        model.fit(X_train, y_train)
+        if model_type == 'AGG-AC':
+            model.fit(X_train, y_train, crossoverCA)
+        elif model_type == 'AGG-BLX':
+            model.fit(X_train, y_train, crossoverBLX)
+        else:
+            model.fit(X_train, y_train)
 
         # Evaluar el modelo
 

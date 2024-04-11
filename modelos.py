@@ -30,7 +30,7 @@ SQRT_03 = np.sqrt(0.3)
 
 '''------------------------------------MODELO GENERICO------------------------------------'''
 
-class Genetic_Model():
+class Genetic_Model(ABC):
     @abstractmethod
     def __init__(self):
         self.X_train = None
@@ -41,7 +41,6 @@ class Genetic_Model():
     def fit(self, X_train, y_train):
         pass
     
-    @abstractmethod
     def predict(self, X_test):
         w = np.copy(self.weights)
         w[w < 0.1] = 0
@@ -56,15 +55,12 @@ class Genetic_Model():
 
         return predictions_labels
     
-    @abstractmethod
     def _red_rate(self, weights):
         return 100*np.sum(weights < 0.1)/weights.shape[0]
     
-    @abstractmethod
     def red_rate(self):
         return self._red_rate(self.weights)
     
-    @abstractmethod
     def _clas_rate(self, weights):
         w = np.copy(weights)
         w[w < 0.1] = 0
@@ -75,32 +71,23 @@ class Genetic_Model():
 
         return 100*np.mean(predictions_labels == self.y_train)
     
-    @abstractmethod
     def clas_rate(self):
         return self._clas_rate(self.weights)
     
-    @abstractmethod
     def _fitness(self, weights, alpha=0.75):
         return self._clas_rate(weights) * alpha + self._red_rate(weights) * (1-alpha)
     
-    
-    @abstractmethod
     def fitness(self, clasRate, redRate, alpha=0.75):
         return clasRate * alpha + redRate * (1-alpha)
     
-    @abstractmethod
     def global_score(self, alpha=0.75):
         clasRate = self.clas_rate(self.weights)
         redRate = self.red_rate(self.weights)
         return clasRate, redRate, self.fitness(clasRate, redRate, alpha)
     
-    @abstractmethod
     def accuracy(self, X_test, y_test):
         return 100*np.mean(self.predict(X_test) == y_test)
-
-    @abstractmethod
-    def __name__(self):
-        pass
+    
 
 '''------------------------------------MODELOS------------------------------------'''
 
@@ -131,15 +118,6 @@ class KNN(Genetic_Model):
 
         return np.array([self._most_common(k_nearest_labels[i]) for i in range(k_nearest_labels.shape[0])])
     
-    def _most_common(self, arr: np.array):
-        return max(set(arr), key=list(arr).count)
-    
-    def _red_rate(self, weights):
-        return super()._red_rate(weights)
-    
-    def red_rate(self):
-        return super().red_rate()
-    
     def _clas_rate(self, weights):
         distances = sp.squareform(sp.pdist(self.X_train, 'euclidean'))
         distances[np.diag_indices(distances.shape[0])] = np.inf
@@ -156,23 +134,15 @@ class KNN(Genetic_Model):
 
         return 100*np.mean(predictions == self.y_train)
     
+    def _most_common(self, arr: np.array):
+        return max(set(arr), key=list(arr).count)
+    
     def clas_rate(self):
         return self._clas_rate(self.weights)
-    
-    def _fitness(self, weights, alpha=0.75):
-        return super()._fitness(weights, alpha)
-    
-    def fitness(self, clasRate, redRate, alpha=0.75):
-        return super().fitness(clasRate, redRate, alpha)
-    
-    def global_score(self, alpha=0.75):
-       return super().global_score(alpha)
     
     def accuracy(self, X_test, y_test):
         return 100*np.mean(self.predict(X_test) == y_test)
     
-    def __name__(self):
-        return self.k+'-NN'
     
 '''------------------------------------RELIEF(GREEDY)------------------------------------'''
 
@@ -206,36 +176,6 @@ class Relief(Genetic_Model):
         
         max_weight = np.max(self.weights)
         self.weights = np.maximum(self.weights / max_weight, 0)
-
-    def predict(self, X_test):
-        return super().predict(X_test)
-    
-    def _red_rate(self, weights):
-        return super()._red_rate(weights)
-    
-    def red_rate(self):
-        return super().red_rate()
-    
-    def _clas_rate(self, weights):
-        return super()._clas_rate(weights)
-    
-    def clas_rate(self):
-        return super().clas_rate()
-    
-    def _fitness(self, weights, alpha=0.75):
-        return super()._fitness(weights, alpha)
-    
-    def fitness(self, clasRate, redRate, alpha=0.75):
-        return super().fitness(clasRate, redRate, alpha)
-    
-    def global_score(self, alpha=0.75):
-        return super().global_score(alpha)
-    
-    def accuracy(self, X_test, y_test):
-        return super().accuracy(X_test, y_test)
-    
-    def __name__(self):
-        return 'Relief'
     
 
 '''------------------------------------MODELO BL------------------------------------'''
@@ -250,7 +190,6 @@ class BL(Genetic_Model):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.random.uniform(0, 1, X_train.shape[1])
-        self.weights[self.weights < 0.1] = 0
         self.MAX_ITER : int = 20*self.weights.shape[0]
         self._fit(evaluations)
 
@@ -282,34 +221,69 @@ class BL(Genetic_Model):
 
         return neighbor
     
-    def predict(self, X_test):
-        return super().predict(X_test)
+
+'''------------------------------------MODELO AGG------------------------------------'''
+
+class AGG(Genetic_Model):
+    def __init__(self, seed=7, population=50, mutation_rate=0.08, crossover_rate=0.7):
+        super().__init__()
+        self.seed = seed
+        self.population = population
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        np.random.seed(seed)
+
+    def fit(self, X_train, y_train, crossover_funtion, evaluations=15000):
+        self.X_train = X_train
+        self.y_train = y_train
+        self.weights = np.empty(X_train.shape[1])
+        self._fit(crossover_funtion, evaluations)
+
+    def _fit(self, crossover_funtion, evaluations=15000):
+        population = np.random.uniform(0, 1, (self.population, self.weights.shape[0]))
+        evaluations : int = 0
+        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        evaluations += self.population
+        best = population[np.argmax(fitnesess)].copy()
+        best_fit = fitnesess[np.argmax(fitnesess)]
+
+        while evaluations < 15000:
+            new_population = self._selection(population, fitnesess)
+            crossover_funtion(new_population, self.crossover_rate)
+            self._mutation(new_population, self.mutation_rate)
+
+            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
+            evaluations += self.population
+
+            best_new = new_population[np.argmax(fitnesess)]
+            best_new_fit = fitnesess[np.argmax(fitnesess)]
+
+            if best_new_fit > best_fit:
+                best = best_new
+                best_fit = best_new_fit
+            else:
+                new_population[np.argmin(fitnesess)] = best
+                fitnesess[np.argmin(fitnesess)] = best_fit
+
+            population = new_population
+
+        self.weights = best
+
     
-    def _red_rate(self, weights):
-        return super()._red_rate(weights)
+    def _selection(self, population, fitnesess):
+        new_population = np.empty((self.population, self.weights.shape[0]))
+
+        random_indexes = np.random.randint(0, self.population, size=(self.population, 3))
+        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
+        new_population = population[random_indexes[np.arange(self.population), best_in_each_group]]
+
+        return new_population
     
-    def red_rate(self):
-        return super().red_rate()
-    
-    def _clas_rate(self, weights):
-        return super()._clas_rate(weights)
-    
-    def clas_rate(self):
-        return super().clas_rate()
-    
-    def fitness(self, clasRate, redRate, alpha=0.75):
-        return super().fitness(clasRate, redRate, alpha)
-    
-    def _fitness(self, weights, alpha=0.75):
-        return super()._fitness(weights, alpha)
-    
-    def global_score(self, alpha=0.75):
-        return super().global_score(alpha)
-    
-    def accuracy(self, X_test, y_test):
-        return super().accuracy(X_test, y_test)
-    
-    
-    
-    
-        
+    def _mutation(self, population, mutation_rate):
+        estimated_mutations = int(mutation_rate * population.size)
+
+        mutation = np.random.normal(0, SQRT_03, estimated_mutations)
+        genes_to_mutate = np.random.randint(0, population.shape[1], estimated_mutations)
+        people_to_mutate = np.random.randint(0, population.shape[0], estimated_mutations)
+
+        population[people_to_mutate, genes_to_mutate] = np.clip(population[people_to_mutate, genes_to_mutate] + mutation, 0, 1)

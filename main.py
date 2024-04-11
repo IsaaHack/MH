@@ -63,8 +63,8 @@ def main():
         print('Base de datos no válida')
         exit()
 
-    ALL_MODELS = ['KNN', 'Relief', 'BL']
-    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], ALL[4]):')
+    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG-AC', 'AGG-BLX']
+    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], ALL[5]):')
     model_type = input()
 
     if model_type == 'KNN' or model_type == '' or model_type == '1':
@@ -73,7 +73,9 @@ def main():
         model_type = 'Relief'
     elif model_type == 'BL' or model_type == '3':
         model_type = 'BL'
-    elif model_type == 'ALL' or model_type == '4':
+    elif model_type == 'AGG' or model_type == '4':
+        model_type = 'AGG'
+    elif model_type == 'ALL' or model_type == '5':
         model_type = 'ALL'
     elif model_type != '':
         print('Modelo no válido')
@@ -93,13 +95,26 @@ def main():
             print('Valor de k no válido')
             exit()
 
-    if model_type == 'BL' or model_type == 'ALL':
+    if model_type == 'BL' or model_type == 'AGG' or model_type == 'ALL':
         print('Introduce el valor de la semilla [DEFAULT=7]:')
         seed_i = input()
         if seed_i == '':
             seed = 7
         else:
             seed = int(seed_i)
+
+    if model_type == 'AGG':
+        print('Introduce el operador de cruce [Opciones: AC[DEFAULT][1], BLX[2]]:')
+        cruce = input()
+        if cruce == '' or cruce == '1' or cruce == 'AC':
+            cruce = 'AC'
+            model_type += '-AC'
+        elif cruce == 'BLX' or cruce == '2':
+            cruce = 'BLX'
+            model_type += '-BLX'
+        else:
+            print('Operador de cruce no válido')
+            exit()
 
     print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
     guardar = input().lower()
