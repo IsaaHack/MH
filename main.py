@@ -45,8 +45,20 @@ except ImportError:
     except subprocess.CalledProcessError:
         print("Error al instalar scikit-learn. Por favor, instálalo manualmente.")
 
+try:
+    from tabulate import tabulate
+except ImportError:
+    print("tabulate no está instalado. Instalando tabulate...")
+    try:
+        subprocess.check_call(["pip", "install", "tabulate"])
+        import tabulate
+        print("tabulate se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar tabulate. Por favor, instálalo manualmente.")
+
 import time
 import funciones
+
 
 def main():
     print('Introduce la base de datos a utilizar [Opciones: BreastCancer[DEFAULT][1], Ecoli[2], Parkinson[3]]:')
@@ -63,8 +75,8 @@ def main():
         print('Base de datos no válida')
         exit()
 
-    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG-AC', 'AGG-BLX']
-    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], ALL[5]):')
+    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG-AC', 'AGG-BLX', 'AGE-AC', 'AGE-BLX']
+    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], ALL[6]]:')
     model_type = input()
 
     if model_type == 'KNN' or model_type == '' or model_type == '1':
@@ -75,7 +87,9 @@ def main():
         model_type = 'BL'
     elif model_type == 'AGG' or model_type == '4':
         model_type = 'AGG'
-    elif model_type == 'ALL' or model_type == '5':
+    elif model_type == 'AGE' or model_type == '5':
+        model_type = 'AGE'
+    elif model_type == 'ALL' or model_type == '6':
         model_type = 'ALL'
     elif model_type != '':
         print('Modelo no válido')
@@ -95,7 +109,7 @@ def main():
             print('Valor de k no válido')
             exit()
 
-    if model_type == 'BL' or model_type == 'AGG' or model_type == 'ALL':
+    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'ALL':
         print('Introduce el valor de la semilla [DEFAULT=7]:')
         seed_i = input()
         if seed_i == '':
@@ -103,7 +117,7 @@ def main():
         else:
             seed = int(seed_i)
 
-    if model_type == 'AGG':
+    if model_type == 'AGG' or model_type == 'AGE':
         print('Introduce el operador de cruce [Opciones: AC[DEFAULT][1], BLX[2]]:')
         cruce = input()
         if cruce == '' or cruce == '1' or cruce == 'AC':
@@ -176,6 +190,7 @@ def main():
         models = [model_type]
 
     for m in models:
+        print()
         print('Dataset:', cadena)
         print('Modelo:', m)
         if m == 'KNN':
@@ -191,13 +206,15 @@ def main():
         print()
 
         print('Resultados:')
-        print(df)
+        print(tabulate(df, headers='keys', numalign='center'))
 
         print()
 
         print('Estadísticas:')
 
-        print(df.describe().loc[['mean', 'std', 'min', 'max']])
+        print(tabulate(df.describe().loc[['mean', 'std', 'min', 'max']], headers='keys', numalign='center'))
+
+        print()
 
         if guardar == 's':
             print()

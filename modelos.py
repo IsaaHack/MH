@@ -1,4 +1,5 @@
 import subprocess
+from abc import ABC, abstractmethod
 
 try:
     import numpy as np
@@ -11,10 +12,6 @@ except ImportError:
     except subprocess.CalledProcessError:
         print("Error al instalar NumPy. Por favor, instálalo manualmente.")
 
-
-
-from abc import ABC, abstractmethod
-
 try:
     import scipy.spatial.distance as sp
 except ImportError:
@@ -25,6 +22,17 @@ except ImportError:
         print("SciPy se ha instalado correctamente.")
     except subprocess.CalledProcessError:
         print("Error al instalar SciPy. Por favor, instálalo manualmente.")
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    print("tqdm no está instalado. Instalando tqdm...")
+    try:
+        subprocess.check_call(["pip", "install", "tqdm"])
+        from tqdm import tqdm
+        print("tqdm se ha instalado correctamente.")
+    except subprocess.CalledProcessError:
+        print("Error al instalar tqdm. Por favor, instálalo manualmente.")
 
 SQRT_03 = np.sqrt(0.3)
 
@@ -198,6 +206,8 @@ class BL(Genetic_Model):
         iterations : int = 0
         n_eval : int = 0
 
+        progress_bar = tqdm(total=evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
+
         while iterations < self.MAX_ITER and n_eval < evaluations:
             mutation_order = np.random.permutation(self.weights.shape[0])
 
@@ -206,11 +216,14 @@ class BL(Genetic_Model):
                 new_evaluation = self._fitness(neighbor)
                 iterations += 1
                 n_eval += 1
+                progress_bar.update(1)
 
                 if new_evaluation > actual_evaluation:
                     actual_evaluation = new_evaluation
                     self.weights = np.copy(neighbor)
                     iterations = 0
+
+        progress_bar.update(evaluations - n_eval)
             
 
     def _get_neighbor(self, mutation_order):
@@ -239,21 +252,25 @@ class AGG(Genetic_Model):
         self.weights = np.empty(X_train.shape[1])
         self._fit(crossover_funtion, evaluations)
 
-    def _fit(self, crossover_funtion, evaluations=15000):
+    def _fit(self, crossover_funtion, max_evaluations=15000):
+        eval : int = 0
+        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
+
         population = np.random.uniform(0, 1, (self.population, self.weights.shape[0]))
-        evaluations : int = 0
         fitnesess = np.apply_along_axis(self._fitness, 1, population)
-        evaluations += self.population
+        eval += self.population
+        progress_bar.update(self.population)
         best = population[np.argmax(fitnesess)].copy()
         best_fit = fitnesess[np.argmax(fitnesess)]
 
-        while evaluations < 15000:
+        while eval < max_evaluations:
             new_population = self._selection(population, fitnesess)
             crossover_funtion(new_population, self.crossover_rate)
             self._mutation(new_population, self.mutation_rate)
 
             fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
-            evaluations += self.population
+            eval += self.population
+            progress_bar.update(self.population)
 
             best_new = new_population[np.argmax(fitnesess)]
             best_new_fit = fitnesess[np.argmax(fitnesess)]
@@ -287,3 +304,67 @@ class AGG(Genetic_Model):
         people_to_mutate = np.random.randint(0, population.shape[0], estimated_mutations)
 
         population[people_to_mutate, genes_to_mutate] = np.clip(population[people_to_mutate, genes_to_mutate] + mutation, 0, 1)
+
+
+'''------------------------------------MODELO AGE------------------------------------'''
+
+class AGE(Genetic_Model):
+    def __init__(self, seed=7, population=50, mutation_rate=0.08, crossover_rate=1):
+        super().__init__()
+        self.seed = seed
+        self.population = population
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        np.random.seed(seed)
+
+    def fit(self, X_train, y_train, crossover_funtion, evaluations=15000):
+        self.X_train = X_train
+        self.y_train = y_train
+        self.weights = np.empty(X_train.shape[1])
+        self._fit(crossover_funtion, evaluations)
+
+    def _fit(self, crossover_funtion, max_evaluations=15000):
+        eval : int = 0
+        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
+
+        population = np.random.uniform(0, 1, (self.population, self.weights.shape[0]))
+        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        eval += self.population
+        progress_bar.update(self.population)
+        best = population[np.argmax(fitnesess)].copy()
+        best_fit = fitnesess[np.argmax(fitnesess)]
+
+        while eval < max_evaluations:
+            childrens, parents_indexes = self._selection(population, fitnesess)
+            crossover_funtion(childrens, self.crossover_rate)
+            self._mutation(childrens, self.mutation_rate)
+
+            fitnesess_children = np.apply_along_axis(self._fitness, 1, childrens)
+            eval += childrens.shape[0]
+            progress_bar.update(childrens.shape[0])
+
+            for i in range(childrens.shape[0]):
+                if fitnesess_children[i] > fitnesess[parents_indexes[i]]:
+                    population[parents_indexes[i]] = childrens[i]
+                    fitnesess[parents_indexes[i]] = fitnesess_children[i]
+
+                    if fitnesess_children[i] > best_fit:
+                        best = childrens[i]
+                        best_fit = fitnesess_children[i]
+
+        self.weights = best
+
+    
+    def _selection(self, population, fitnesess):
+        new_population = np.empty((2, self.weights.shape[0]))
+
+        random_indexes = np.random.randint(0, self.population, size=(2))
+
+        new_population = population[random_indexes]
+
+        return new_population, random_indexes
+    
+    def _mutation(self, population, mutation_rate):
+        random_chances = np.random.uniform(0, 1, population.shape[0])
+
+        population[random_chances < mutation_rate] = np.clip(np.random.normal(0, SQRT_03) + population[random_chances < mutation_rate], 0, 1)

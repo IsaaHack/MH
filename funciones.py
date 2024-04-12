@@ -102,12 +102,14 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
             model = modelos.BL(np.random.randint(0, 1000))
         elif model_type == 'AGG-AC' or model_type == 'AGG-BLX':
             model = modelos.AGG(np.random.randint(0, 1000))
+        elif model_type == 'AGE-AC' or model_type == 'AGE-BLX':
+            model = modelos.AGE(np.random.randint(0, 1000))
         else:
             raise ValueError("El modelo no es válido.")
 
-        if model_type == 'AGG-AC':
+        if model_type == 'AGG-AC' or model_type == 'AGE-AC':
             model.fit(X_train, y_train, crossoverCA)
-        elif model_type == 'AGG-BLX':
+        elif model_type == 'AGG-BLX' or model_type == 'AGE-BLX':
             model.fit(X_train, y_train, crossoverBLX)
         else:
             model.fit(X_train, y_train)
