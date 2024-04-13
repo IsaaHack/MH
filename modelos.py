@@ -50,12 +50,12 @@ class Genetic_Model(ABC):
         pass
     
     def predict(self, X_test):
-        w = np.copy(self.weights)
-        w[w < 0.1] = 0
-
         X = np.concatenate((self.X_train, X_test))
 
-        distances = sp.squareform(sp.pdist(X, 'euclidean', w=w))
+        weights_to_use = self.weights[self.weights >= 0.1]
+        atributes_to_use = X[:, self.weights >= 0.1]
+
+        distances = sp.squareform(sp.pdist(atributes_to_use, 'euclidean', w=weights_to_use))
         distances[np.diag_indices(distances.shape[0])] = np.inf
         distances = distances[self.X_train.shape[0]:, :self.X_train.shape[0]]
         index_predictions = np.argmin(distances, axis=1)
@@ -70,9 +70,10 @@ class Genetic_Model(ABC):
         return self._red_rate(self.weights)
     
     def _clas_rate(self, weights):
-        w = np.copy(weights)
-        w[w < 0.1] = 0
-        distances = sp.squareform(sp.pdist(self.X_train, 'euclidean', w=w))
+        weights_to_use = weights[weights >= 0.1]
+        atributes_to_use = self.X_train[:, weights >= 0.1]
+
+        distances = sp.squareform(sp.pdist(atributes_to_use, 'euclidean', w=weights_to_use))
         distances[np.diag_indices(distances.shape[0])] = np.inf
         index_predictions = np.argmin(distances, axis=1)
         predictions_labels = self.y_train[index_predictions]
@@ -267,7 +268,7 @@ class AGG(Genetic_Model):
             new_population = self._selection(population, fitnesess)
             crossover_funtion(new_population, self.crossover_rate)
             self._mutation(new_population, self.mutation_rate)
-
+            
             fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
             eval += self.population
             progress_bar.update(self.population)

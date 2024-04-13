@@ -25,36 +25,32 @@ def getWeightedEuclideanDistances(X : np.array, W : np.array, x):
     return np.sqrt(np.sum(W * (X - x) ** 2, axis=1))
 
 def crossoverCA(population : np.ndarray[float], crossover_rate : float):
-    estimated_crossovers = int(crossover_rate * len(population) / 2)
+    estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
     alphas = np.random.uniform(0, 1, estimated_crossovers*2)
-    alphas = alphas.repeat(population.shape[1]).reshape(estimated_crossovers*2, population.shape[1])
 
-    population[:2*estimated_crossovers:2] = alphas[::2] * population[:2*estimated_crossovers:2] + (1 - alphas[::2]) * population[1:2*estimated_crossovers:2]
-    population[1:2*estimated_crossovers:2] = alphas[1::2] * population[:2*estimated_crossovers:2] + (1 - alphas[1::2]) * population[1:2*estimated_crossovers:2]
+    for i in range(estimated_crossovers):
+        parent1 : int = 2*i
+        parent2 : int = parent1 + 1
 
-    #population[:2*estimated_crossovers] = parents
-
-    # for i in range(estimated_crossovers):
-    #     alpha = alphas[i][0]
-    #     parent1 = population[2*i]
-    #     parent2 = population[2*i+1]
-    #     child1 = alpha * parent1 + (1 - alpha) * parent2
-    #     child2 = alpha * parent2 + (1 - alpha) * parent1
-    #     population[2*i] = child1
-    #     population[2*i+1] = child2
+        population[parent1] = alphas[2*i] * population[parent1] + (1 - alphas[2*i]) * population[parent2]
+        population[parent2] = alphas[2*i+1] * population[parent1] + (1 - alphas[2*i+1]) * population[parent2]
 
 def crossoverBLX(population : np.ndarray[float], crossover_rate : float, alpha : float = 0.3):
-    estimated_crossovers = int(crossover_rate * len(population) / 2)
+    estimated_crossovers = np.floor(crossover_rate * len(population) / 2).astype(int)
     
     for i in range(estimated_crossovers):
-        c_max = np.maximum(population[2*i], population[2*i+1])
-        c_min = np.minimum(population[2*i], population[2*i+1])
+        parent1 : int = 2*i
+        parent2 : int = parent1 + 1
 
-        I = c_max - c_min
+        c_max : float = np.maximum(population[parent1], population[parent2])
+        c_min : float = np.minimum(population[parent1], population[parent2])
 
-        population[2*i] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
-        population[2*i+1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+        I : float = c_max - c_min
 
+        population[parent1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+        population[parent2] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+
+    population[:2*estimated_crossovers] = np.clip(population[:2*estimated_crossovers], 0, 1)
 
 
 def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : np.ndarray, X5 : np.ndarray , y1 : np.ndarray, y2 : np.ndarray, y3 : np.ndarray, y4 : np.ndarray, y5 : np.ndarray, model_type : str, seed : int, k : int):
