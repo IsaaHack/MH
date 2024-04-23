@@ -75,8 +75,8 @@ def main():
         print('Base de datos no válida')
         exit()
 
-    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG-AC', 'AGG-BLX', 'AGE-AC', 'AGE-BLX']
-    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], ALL[6]]:')
+    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG-AC', 'AGG-BLX', 'AGE-AC', 'AGE-BLX', 'AM-(10,1.0)', 'AM-(10,0.1)', 'AM-(10,0.1mej)']
+    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], AM[6], ALL[7]]:')
     model_type = input()
 
     if model_type == 'KNN' or model_type == '' or model_type == '1':
@@ -89,7 +89,9 @@ def main():
         model_type = 'AGG'
     elif model_type == 'AGE' or model_type == '5':
         model_type = 'AGE'
-    elif model_type == 'ALL' or model_type == '6':
+    elif model_type == 'AM' or model_type == '6':
+        model_type = 'AM'
+    elif model_type == 'ALL' or model_type == '7':
         model_type = 'ALL'
     elif model_type != '':
         print('Modelo no válido')
@@ -129,6 +131,20 @@ def main():
         else:
             print('Operador de cruce no válido')
             exit()
+
+    seleccion = ''
+    if model_type == 'AM':
+        print('Introduce el operador seleción en BL [Opciones: (10,1.0)[DEFAULT][1], (10,0.1)[2], (10,0.1mej)[3]]:')
+        seleccion = input()
+        if seleccion == '' or seleccion == '1' or seleccion == '(10,1.0)':
+            seleccion = '(10,1.0)'
+            model_type += '-(10,1.0)'
+        elif seleccion == '(10,0.1)' or seleccion == '2':
+            seleccion = '(10,0.1)'
+            model_type += '-(10,0.1)'
+        elif seleccion == '(10,0.1mej)' or seleccion == '3':
+            seleccion = '(10,0.1mej)'
+            model_type += '-(10,0.1mej)'
 
     print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
     guardar = input().lower()
@@ -206,7 +222,7 @@ def main():
         print()
 
         print('Resultados:')
-        print(tabulate(df, headers='keys', numalign='center'))
+        print(tabulate(df, headers='keys', numalign='center', showindex=False))
 
         print()
 

@@ -224,6 +224,9 @@ class BL(Genetic_Model):
                     self.weights = np.copy(neighbor)
                     iterations = 0
 
+                if n_eval >= evaluations:
+                    break
+
         progress_bar.update(evaluations - n_eval)
             
 
@@ -247,13 +250,13 @@ class AGG(Genetic_Model):
         self.crossover_rate = crossover_rate
         np.random.seed(seed)
 
-    def fit(self, X_train, y_train, crossover_funtion, evaluations=15000):
+    def fit(self, X_train, y_train, crossover_function, evaluations=15000):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.empty(X_train.shape[1])
-        self._fit(crossover_funtion, evaluations)
+        self._fit(crossover_function, evaluations)
 
-    def _fit(self, crossover_funtion, max_evaluations=15000):
+    def _fit(self, crossover_function, max_evaluations=15000):
         eval : int = 0
         progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
 
@@ -266,7 +269,7 @@ class AGG(Genetic_Model):
 
         while eval < max_evaluations:
             new_population = self._selection(population, fitnesess)
-            crossover_funtion(new_population, self.crossover_rate)
+            crossover_function(new_population, self.crossover_rate)
             self._mutation(new_population, self.mutation_rate)
             
             fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
@@ -285,7 +288,7 @@ class AGG(Genetic_Model):
 
             population = new_population
 
-        self.weights = best
+        self.weights = np.copy(best)
 
     
     def _selection(self, population, fitnesess):
@@ -318,13 +321,13 @@ class AGE(Genetic_Model):
         self.crossover_rate = crossover_rate
         np.random.seed(seed)
 
-    def fit(self, X_train, y_train, crossover_funtion, evaluations=15000):
+    def fit(self, X_train, y_train, crossover_function, evaluations=15000):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.empty(X_train.shape[1])
-        self._fit(crossover_funtion, evaluations)
+        self._fit(crossover_function, evaluations)
 
-    def _fit(self, crossover_funtion, max_evaluations=15000):
+    def _fit(self, crossover_function, max_evaluations=15000):
         eval : int = 0
         progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
 
@@ -336,36 +339,126 @@ class AGE(Genetic_Model):
         best_fit = fitnesess[np.argmax(fitnesess)]
 
         while eval < max_evaluations:
-            childrens, parents_indexes = self._selection(population, fitnesess)
-            crossover_funtion(childrens, self.crossover_rate)
+            childrens = self._selection(population, fitnesess)
+            crossover_function(childrens, self.crossover_rate)
             self._mutation(childrens, self.mutation_rate)
 
             fitnesess_children = np.apply_along_axis(self._fitness, 1, childrens)
             eval += childrens.shape[0]
             progress_bar.update(childrens.shape[0])
 
-            for i in range(childrens.shape[0]):
-                if fitnesess_children[i] > fitnesess[parents_indexes[i]]:
-                    population[parents_indexes[i]] = childrens[i]
-                    fitnesess[parents_indexes[i]] = fitnesess_children[i]
+            if(fitnesess_children[np.argmax(fitnesess_children)] > fitnesess[np.argmin(fitnesess)]):
+                population[np.argmin(fitnesess)] = childrens[np.argmax(fitnesess_children)]
+                fitnesess[np.argmin(fitnesess)] = fitnesess_children[np.argmax(fitnesess_children)]
 
-                    if fitnesess_children[i] > best_fit:
-                        best = childrens[i]
-                        best_fit = fitnesess_children[i]
+            if(fitnesess_children[np.argmin(fitnesess_children)] > fitnesess[np.argmin(fitnesess)]):
+                population[np.argmin(fitnesess)] = childrens[np.argmin(fitnesess_children)]
+                fitnesess[np.argmin(fitnesess)] = fitnesess_children[np.argmin(fitnesess_children)]
 
-        self.weights = best
+            best_new = childrens[np.argmax(fitnesess_children)]
+            best_new_fit = fitnesess_children[np.argmax(fitnesess_children)]
+
+            if best_new_fit > best_fit:
+                best = best_new
+                best_fit = best_new_fit
+
+
+        self.weights = np.copy(best)
 
     
     def _selection(self, population, fitnesess):
         new_population = np.empty((2, self.weights.shape[0]))
 
-        random_indexes = np.random.randint(0, self.population, size=(2))
+        random_indexes = np.random.randint(0, self.population, size=(2, 3))
+        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
 
-        new_population = population[random_indexes]
+        new_population = population[random_indexes[np.arange(2), best_in_each_group]]
 
-        return new_population, random_indexes
+        return new_population
     
     def _mutation(self, population, mutation_rate):
         random_chances = np.random.uniform(0, 1, population.shape[0])
 
         population[random_chances < mutation_rate] = np.clip(np.random.normal(0, SQRT_03) + population[random_chances < mutation_rate], 0, 1)
+
+
+'''------------------------------------MODELO AM------------------------------------'''
+
+class AM(Genetic_Model):
+    def __init__(self, seed=7, population=50, mutation_rate=0.08, crossover_rate=0.7):
+        super().__init__()
+        self.seed = seed
+        self.population = population
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        np.random.seed(seed)
+
+    def fit(self, X_train, y_train, crossover_function, bl_function, bl_selection_function, bl_rate : int = 10, evaluations=15000):
+        self.X_train = X_train
+        self.y_train = y_train
+        self.weights = np.empty(X_train.shape[1])
+        self._fit(crossover_function, bl_function, bl_selection_function, bl_rate, evaluations)
+
+    def _fit(self, crossover_funtion, bl_function, bl_selection_function, bl_rate : int = 10, max_evaluations=15000):
+        eval : int = 0
+        n_generations : int = 1
+        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
+
+        population = np.random.uniform(0, 1, (self.population, self.weights.shape[0]))
+        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        eval += self.population
+        progress_bar.update(self.population)
+        best = population[np.argmax(fitnesess)].copy()
+        best_fit = fitnesess[np.argmax(fitnesess)]
+
+        while eval < max_evaluations:
+            new_population = self._selection(population, fitnesess)
+            crossover_funtion(new_population, self.crossover_rate)
+            self._mutation(new_population, self.mutation_rate)
+            
+            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
+            eval += self.population
+            progress_bar.update(self.population)
+
+            if n_generations % bl_rate == 0:
+                bl_selection = bl_selection_function(new_population, fitnesess)
+                
+                for index in bl_selection:
+                    new_population[index], fitnesess[index], n_eval_bl = bl_function(new_population[index], fitnesess[index], self._fitness, 2*new_population.shape[1])
+                    eval += n_eval_bl
+                    progress_bar.update(n_eval_bl)
+
+
+            best_new = new_population[np.argmax(fitnesess)]
+            best_new_fit = fitnesess[np.argmax(fitnesess)]
+
+            if best_new_fit > best_fit:
+                best = best_new
+                best_fit = best_new_fit
+            else:
+                new_population[np.argmin(fitnesess)] = best
+                fitnesess[np.argmin(fitnesess)] = best_fit
+
+            population = new_population
+            n_generations += 1
+
+        self.weights = np.copy(best)
+
+    
+    def _selection(self, population, fitnesess):
+        new_population = np.empty((self.population, self.weights.shape[0]))
+
+        random_indexes = np.random.randint(0, self.population, size=(self.population, 3))
+        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
+        new_population = population[random_indexes[np.arange(self.population), best_in_each_group]]
+
+        return new_population
+    
+    def _mutation(self, population, mutation_rate):
+        estimated_mutations = int(mutation_rate * population.size)
+
+        mutation = np.random.normal(0, SQRT_03, estimated_mutations)
+        genes_to_mutate = np.random.randint(0, population.shape[1], estimated_mutations)
+        people_to_mutate = np.random.randint(0, population.shape[0], estimated_mutations)
+
+        population[people_to_mutate, genes_to_mutate] = np.clip(population[people_to_mutate, genes_to_mutate] + mutation, 0, 1)

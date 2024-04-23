@@ -52,6 +52,50 @@ def crossoverBLX(population : np.ndarray[float], crossover_rate : float, alpha :
 
     population[:2*estimated_crossovers] = np.clip(population[:2*estimated_crossovers], 0, 1)
 
+def localSearch(chromosome : np.ndarray[float], fitness : float, fitness_function, max_evaluations : int = 15000):
+    evaluations : int = 0
+    best_fitness : float = fitness
+    best_chromosome : np.ndarray[float] = np.copy(chromosome)
+    improvement : bool = False
+
+    while evaluations < max_evaluations and not improvement:
+        mutation_order : np.ndarray[int] = np.random.permutation(len(chromosome))
+
+        for i in mutation_order:
+            neighbour : np.ndarray[float] = getNeighbour(chromosome, i)
+            new_fitness : float = fitness_function(neighbour)
+            evaluations += 1
+
+            if new_fitness > best_fitness:
+                best_fitness = new_fitness
+                best_chromosome = np.copy(neighbour)
+                improvement = True
+
+            if evaluations >= max_evaluations or improvement:
+                break
+
+
+    return best_chromosome, best_fitness, evaluations
+
+
+def getNeighbour(chromosome : np.ndarray[float], i : int):
+    mutation : float = np.random.normal(0, np.sqrt(0.3))
+    neighbour : np.ndarray[float] = np.copy(chromosome)
+
+    neighbour[i] = np.clip(neighbour[i] + mutation, 0, 1)
+
+    return neighbour
+
+
+def selectBestChromosomes(population : np.ndarray[float], fitness : np.ndarray[float], p : float = 0.1):
+    return np.argsort(fitness)[::-1][:int(p*len(population))]
+
+def selectRandomChromosomes(population : np.ndarray[float], fitness : np.ndarray[float], p : float = 0.1):
+    return np.random.choice(len(population), int(p * len(population)), replace=False)
+
+def selectAllChromosomes(population : np.ndarray[float], fitness : np.ndarray[float]):
+    return np.arange(len(population))
+
 
 def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : np.ndarray, X5 : np.ndarray , y1 : np.ndarray, y2 : np.ndarray, y3 : np.ndarray, y4 : np.ndarray, y5 : np.ndarray, model_type : str, seed : int, k : int):
     claves = ['Partición', 'Tasa de clasificación', 'Tasa de reducción', 'Fitness train', 'Fitness test', 'Accuracy', 'Tiempo de ejecución']
@@ -100,6 +144,8 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
             model = modelos.AGG(np.random.randint(0, 1000))
         elif model_type == 'AGE-AC' or model_type == 'AGE-BLX':
             model = modelos.AGE(np.random.randint(0, 1000))
+        elif model_type == 'AM-(10,1.0)' or model_type == 'AM-(10,0.1)' or model_type == 'AM-(10,0.1mej)':
+            model = modelos.AM(np.random.randint(0, 1000))
         else:
             raise ValueError("El modelo no es válido.")
 
@@ -107,6 +153,12 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
             model.fit(X_train, y_train, crossoverCA)
         elif model_type == 'AGG-BLX' or model_type == 'AGE-BLX':
             model.fit(X_train, y_train, crossoverBLX)
+        elif model_type == 'AM-(10,1.0)':
+            model.fit(X_train, y_train, crossover_function=crossoverBLX, bl_function=localSearch, bl_selection_function=selectAllChromosomes)
+        elif model_type == 'AM-(10,0.1)':
+            model.fit(X_train, y_train, crossover_function=crossoverBLX, bl_function=localSearch, bl_selection_function=selectRandomChromosomes)
+        elif model_type == 'AM-(10,0.1mej)':
+            model.fit(X_train, y_train, crossover_function=crossoverBLX, bl_function=localSearch, bl_selection_function=selectBestChromosomes)
         else:
             model.fit(X_train, y_train)
 
