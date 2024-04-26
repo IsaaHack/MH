@@ -15,14 +15,14 @@ import modelos
 
 ALPHA = 0.75
 
+class Model_Parameters:
+    def __init__(self, model_type : list[str], params : list[dict], model_name : list[str]):
+        self.model_type = model_type
+        self.params = params
+        self.model_name = model_name
+
 def evaluationFunction(tasa_clas, tasa_red, alfa=0.75):
     return alfa*tasa_clas + (1-alfa)*tasa_red
-
-def getEuclideanDistances(X, x):
-    return np.sqrt(np.sum((X - x) ** 2, axis=1))
-
-def getWeightedEuclideanDistances(X : np.array, W : np.array, x):
-    return np.sqrt(np.sum(W * (X - x) ** 2, axis=1))
 
 def crossoverCA(population : np.ndarray[float], crossover_rate : float):
     estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
@@ -36,7 +36,7 @@ def crossoverCA(population : np.ndarray[float], crossover_rate : float):
         population[parent2] = alphas[2*i+1] * population[parent1] + (1 - alphas[2*i+1]) * population[parent2]
 
 def crossoverBLX(population : np.ndarray[float], crossover_rate : float, alpha : float = 0.3):
-    estimated_crossovers = np.floor(crossover_rate * len(population) / 2).astype(int)
+    estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
     
     for i in range(estimated_crossovers):
         parent1 : int = 2*i
@@ -88,16 +88,16 @@ def getNeighbour(chromosome : np.ndarray[float], i : int):
 
 
 def selectBestChromosomes(population : np.ndarray[float], fitness : np.ndarray[float], p : float = 0.1):
-    return np.argsort(fitness)[::-1][:int(p*len(population))]
+    return np.argsort(fitness)[::-1][:int(np.ceil(p*len(population)))]
 
 def selectRandomChromosomes(population : np.ndarray[float], fitness : np.ndarray[float], p : float = 0.1):
-    return np.random.choice(len(population), int(p * len(population)), replace=False)
+    return np.random.choice(len(population), int(np.ceil(p*len(population))), replace=False)
 
 def selectAllChromosomes(population : np.ndarray[float], fitness : np.ndarray[float]):
     return np.arange(len(population))
 
 
-def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : np.ndarray, X5 : np.ndarray , y1 : np.ndarray, y2 : np.ndarray, y3 : np.ndarray, y4 : np.ndarray, y5 : np.ndarray, model_type : str, seed : int, k : int):
+def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : np.ndarray, X5 : np.ndarray , y1 : np.ndarray, y2 : np.ndarray, y3 : np.ndarray, y4 : np.ndarray, y5 : np.ndarray, model_name : str, model_params : dict, seed : int):
     claves = ['Partición', 'Tasa de clasificación', 'Tasa de reducción', 'Fitness train', 'Fitness test', 'Accuracy', 'Tiempo de ejecución']
     resultados = pd.DataFrame()
     pesos = list()
@@ -134,33 +134,30 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
 
         time_start : float = time.time()
 
-        if model_type == 'KNN':
-            model = modelos.KNN(k)
-        elif model_type == 'Relief':
-            model = modelos.Relief()
-        elif model_type == 'BL':
-            model = modelos.BL(np.random.randint(0, 1000))
-        elif model_type == 'AGG-AC' or model_type == 'AGG-BLX':
-            model = modelos.AGG(np.random.randint(0, 1000))
-        elif model_type == 'AGE-AC' or model_type == 'AGE-BLX':
-            model = modelos.AGE(np.random.randint(0, 1000))
-        elif model_type == 'AM-(10,1.0)' or model_type == 'AM-(10,0.1)' or model_type == 'AM-(10,0.1mej)':
-            model = modelos.AM(np.random.randint(0, 1000))
-        else:
-            raise ValueError("El modelo no es válido.")
+        match model_name:
+            case 'KNN':
+                model = modelos.KNN(**model_params)
+            case 'Relief':
+                model = modelos.Relief(**model_params)
+            case 'BL':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.BL(**model_params)
+            case 'AGG':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.AGG(**model_params)
+            case 'AGE':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.AGE(**model_params)
+            case 'AM':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.AM(**model_params)
+            case _:
+                print("Modelo no válido.")
+                exit()
 
-        if model_type == 'AGG-AC' or model_type == 'AGE-AC':
-            model.fit(X_train, y_train, crossoverCA)
-        elif model_type == 'AGG-BLX' or model_type == 'AGE-BLX':
-            model.fit(X_train, y_train, crossoverBLX)
-        elif model_type == 'AM-(10,1.0)':
-            model.fit(X_train, y_train, crossover_function=crossoverBLX, bl_function=localSearch, bl_selection_function=selectAllChromosomes)
-        elif model_type == 'AM-(10,0.1)':
-            model.fit(X_train, y_train, crossover_function=crossoverBLX, bl_function=localSearch, bl_selection_function=selectRandomChromosomes)
-        elif model_type == 'AM-(10,0.1mej)':
-            model.fit(X_train, y_train, crossover_function=crossoverBLX, bl_function=localSearch, bl_selection_function=selectBestChromosomes)
-        else:
-            model.fit(X_train, y_train)
+        # Entrenar el modelo
+
+        model.fit(X_train, y_train)
 
         # Evaluar el modelo
 
@@ -172,7 +169,7 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
 
         accuracy = model.accuracy(X_test, y_test)
 
-        fitness_test = evaluationFunction(accuracy, tasa_red)
+        fitness_test = evaluationFunction(accuracy, tasa_red, ALPHA)
 
         time_end : float = time.time()
 

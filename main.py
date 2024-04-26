@@ -14,6 +14,11 @@ except ImportError:
 
 try:
     import arff
+    if arff.__package__ == 'arff':
+        print("arff no está instalado correctamente. Por favor, instálalo manualmente.")
+        print('Desinstala arff con "pip uninstall arff" y vuelve a instalarlo con "pip install liac-arff".')
+        
+        exit()
 except ImportError:
     print("arff no está instalado. Instalando arff...")
     try:
@@ -75,7 +80,7 @@ def main():
         print('Base de datos no válida')
         exit()
 
-    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG-AC', 'AGG-BLX', 'AGE-AC', 'AGE-BLX', 'AM-(10,1.0)', 'AM-(10,0.1)', 'AM-(10,0.1mej)']
+    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG' 'AGE', 'AM-']
     print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], AM[6], ALL[7]]:')
     model_type = input()
 
@@ -111,7 +116,7 @@ def main():
             print('Valor de k no válido')
             exit()
 
-    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'ALL':
+    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'AM' or model_type == 'ALL':
         print('Introduce el valor de la semilla [DEFAULT=7]:')
         seed_i = input()
         if seed_i == '':
@@ -119,15 +124,20 @@ def main():
         else:
             seed = int(seed_i)
 
+    version_mejorada = False
+    if model_type == 'AGG' or model_type == 'AGE' or model_type == 'AM' or model_type == 'ALL':
+        print('¿Quieres utilizar la versión mejorada de los algoritmos genéticos? [S/N][DEFAULT=N]:')
+        version_mejorada = input().lower() == 's'
+
     if model_type == 'AGG' or model_type == 'AGE':
-        print('Introduce el operador de cruce [Opciones: AC[DEFAULT][1], BLX[2]]:')
+        print('Introduce el operador de cruce [Opciones: CA[DEFAULT][1], BLX[2]]:')
         cruce = input()
-        if cruce == '' or cruce == '1' or cruce == 'AC':
-            cruce = 'AC'
-            model_type += '-AC'
+        if cruce == '' or cruce == '1' or cruce == 'CA':
+            cruce = 'CA'
+            funcion_cruce = funciones.crossoverCA
         elif cruce == 'BLX' or cruce == '2':
             cruce = 'BLX'
-            model_type += '-BLX'
+            funcion_cruce = funciones.crossoverBLX
         else:
             print('Operador de cruce no válido')
             exit()
@@ -138,13 +148,63 @@ def main():
         seleccion = input()
         if seleccion == '' or seleccion == '1' or seleccion == '(10,1.0)':
             seleccion = '(10,1.0)'
-            model_type += '-(10,1.0)'
+            funcion_selecion = funciones.selectAllChromosomes
         elif seleccion == '(10,0.1)' or seleccion == '2':
             seleccion = '(10,0.1)'
-            model_type += '-(10,0.1)'
+            funcion_selecion = funciones.selectRandomChromosomes
+            seleccion = '(10,0.1)'
         elif seleccion == '(10,0.1mej)' or seleccion == '3':
             seleccion = '(10,0.1mej)'
-            model_type += '-(10,0.1mej)'
+            funcion_selecion = funciones.selectBestChromosomes
+        else:
+            print('Operador de selección no válido')
+            exit()
+
+
+    np.random.seed(seed)
+
+    match model_type:
+        case 'KNN':
+            model = ['KNN']
+            model_name = [str(k)+'NN']
+            params = [{'k' : k}]
+        case 'Relief':
+            model = ['Relief']
+            model_name = ['Relief']
+            params = [{}]
+        case 'BL':
+            model_name = ['BL']
+            model = ['BL']
+            params = [{}]
+        case 'AGG':
+            model = ['AGG']
+            model_name = ['AGG-'+cruce]
+            params = [{'crossover_function' : funcion_cruce, 'improved' : version_mejorada}]
+        case 'AGE':
+            model = ['AGE']
+            model_name = ['AGE-'+cruce]
+            params = [{'crossover_function' : funcion_cruce, 'improved' : version_mejorada}]
+        case 'AM':
+            model = ['AM']
+            model_name = ['AM-'+seleccion]
+            params = [{'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funcion_selecion, 'improved' : version_mejorada}]
+        case 'ALL':
+            model = ['KNN', 'Relief', 'BL', 'AGG', 'AGG', 'AGE', 'AGE', 'AM', 'AM', 'AM']
+            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-(10,1.0)', 'AM-(10,0.1)', 'AM-(10,0.1mej)']
+            params = [{'k' : k},
+                       {}, 
+                       {},
+                          {'crossover_function' : funciones.crossoverCA, 'improved' : version_mejorada},
+                          {'crossover_function' : funciones.crossoverBLX, 'improved' : version_mejorada},
+                            {'crossover_function' : funciones.crossoverCA, 'improved' : version_mejorada},
+                            {'crossover_function' : funciones.crossoverBLX, 'improved' : version_mejorada},
+                              {'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funciones.selectAllChromosomes, 'improved' : version_mejorada},
+                              {'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funciones.selectRandomChromosomes, 'improved' : version_mejorada},
+                              {'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funciones.selectBestChromosomes, 'improved' : version_mejorada}
+
+                        ]
+        
+    models_params = funciones.Model_Parameters(model, params, model_name)
 
     print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
     guardar = input().lower()
@@ -200,21 +260,17 @@ def main():
 
     # 5-fold cross-validation
 
-    if model_type == 'ALL':
-        models = ALL_MODELS
-    else:
-        models = [model_type]
+    models = models_params.model_type
+    params = models_params.params
+    model_names = models_params.model_name
 
-    for m in models:
+    for m, model_params, model_name in zip(models, params, model_names):
         print()
         print('Dataset:', cadena)
-        print('Modelo:', m)
-        if m == 'KNN':
-            print('k:', k)
-        elif m == 'BL':
-            print('Semilla:', seed)
+        print('Modelo:', model_name)
+        print('Parámetros:', model_params)
 
-        df, pesos = funciones.fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, m, seed, k)
+        df, pesos = funciones.fiveCrossValidation(X1, X2, X3, X4, X5, y1, y2, y3, y4, y5, m, model_params, seed)
 
         print('Pesos:')
         print(pesos)
@@ -238,7 +294,7 @@ def main():
             if not os.path.exists('./results'):
                 os.makedirs('./results')
             try:
-                df.to_csv('./results/'+cadena+'_'+m+'.csv', index=False)
+                df.to_csv('./results/'+cadena+'_'+model_name+'.csv', index=False)
                 print('Resultados guardados correctamente')
             except:
                 print('Error al guardar los resultados')
