@@ -93,7 +93,7 @@ def selectBestChromosomes(population : np.ndarray[float], fitness : np.ndarray[f
 def selectRandomChromosomes(population : np.ndarray[float], fitness : np.ndarray[float], p : float = 0.1):
     return np.random.choice(len(population), int(np.ceil(p*len(population))), replace=False)
 
-def selectAllChromosomes(population : np.ndarray[float], fitness : np.ndarray[float]):
+def selectAllChromosomes(population : np.ndarray[float], fitness : np.ndarray[float], p : float = 1):
     return np.arange(len(population))
 
 

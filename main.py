@@ -134,10 +134,8 @@ def main():
         cruce = input()
         if cruce == '' or cruce == '1' or cruce == 'CA':
             cruce = 'CA'
-            funcion_cruce = funciones.crossoverCA
         elif cruce == 'BLX' or cruce == '2':
             cruce = 'BLX'
-            funcion_cruce = funciones.crossoverBLX
         else:
             print('Operador de cruce no válido')
             exit()
@@ -147,15 +145,11 @@ def main():
         print('Introduce el operador seleción en BL [Opciones: (10,1.0)[DEFAULT][1], (10,0.1)[2], (10,0.1mej)[3]]:')
         seleccion = input()
         if seleccion == '' or seleccion == '1' or seleccion == '(10,1.0)':
-            seleccion = '(10,1.0)'
-            funcion_selecion = funciones.selectAllChromosomes
+            seleccion = 'All'
         elif seleccion == '(10,0.1)' or seleccion == '2':
-            seleccion = '(10,0.1)'
-            funcion_selecion = funciones.selectRandomChromosomes
-            seleccion = '(10,0.1)'
+            seleccion = 'Random'
         elif seleccion == '(10,0.1mej)' or seleccion == '3':
-            seleccion = '(10,0.1mej)'
-            funcion_selecion = funciones.selectBestChromosomes
+            seleccion = 'Best'
         else:
             print('Operador de selección no válido')
             exit()
@@ -179,28 +173,28 @@ def main():
         case 'AGG':
             model = ['AGG']
             model_name = ['AGG-'+cruce]
-            params = [{'crossover_function' : funcion_cruce, 'improved' : version_mejorada}]
+            params = [{'crossover' : cruce, 'improved' : version_mejorada}]
         case 'AGE':
             model = ['AGE']
             model_name = ['AGE-'+cruce]
-            params = [{'crossover_function' : funcion_cruce, 'improved' : version_mejorada}]
+            params = [{'crossover' : cruce, 'improved' : version_mejorada}]
         case 'AM':
             model = ['AM']
             model_name = ['AM-'+seleccion]
-            params = [{'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funcion_selecion, 'improved' : version_mejorada}]
+            params = [{'crossover' : 'BLX', 'bl_selection' : seleccion, 'improved' : version_mejorada}]
         case 'ALL':
             model = ['KNN', 'Relief', 'BL', 'AGG', 'AGG', 'AGE', 'AGE', 'AM', 'AM', 'AM']
-            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-(10,1.0)', 'AM-(10,0.1)', 'AM-(10,0.1mej)']
+            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-All', 'AM-Random', 'AM-Best']
             params = [{'k' : k},
                        {}, 
                        {},
-                          {'crossover_function' : funciones.crossoverCA, 'improved' : version_mejorada},
-                          {'crossover_function' : funciones.crossoverBLX, 'improved' : version_mejorada},
-                            {'crossover_function' : funciones.crossoverCA, 'improved' : version_mejorada},
-                            {'crossover_function' : funciones.crossoverBLX, 'improved' : version_mejorada},
-                              {'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funciones.selectAllChromosomes, 'improved' : version_mejorada},
-                              {'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funciones.selectRandomChromosomes, 'improved' : version_mejorada},
-                              {'crossover_function' : funciones.crossoverBLX, 'bl_selection_function' : funciones.selectBestChromosomes, 'improved' : version_mejorada}
+                          {'crossover' : 'CA', 'improved' : version_mejorada},
+                          {'crossover' : 'BLX', 'improved' : version_mejorada},
+                            {'crossover' : 'CA', 'improved' : version_mejorada},
+                            {'crossover' : 'BLX', 'improved' : version_mejorada},
+                              {'crossover' : 'BLX', 'bl_selection' : 'All', 'improved' : version_mejorada},
+                              {'crossover' : 'BLX', 'bl_selection' : 'Random', 'improved' : version_mejorada},
+                              {'crossover' : 'BLX', 'bl_selection' : 'Best', 'improved' : version_mejorada}
 
                         ]
         
