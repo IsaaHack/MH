@@ -21,7 +21,7 @@ class Model_Parameters:
         self.params = params
         self.model_name = model_name
 
-def evaluationFunction(tasa_clas, tasa_red, alfa=0.75):
+def objetiveFunction(tasa_clas, tasa_red, alfa=0.75):
     return alfa*tasa_clas + (1-alfa)*tasa_red
 
 def crossoverCA(population : np.ndarray[float], crossover_rate : float):
@@ -42,10 +42,10 @@ def crossoverBLX(population : np.ndarray[float], crossover_rate : float, alpha :
         parent1 : int = 2*i
         parent2 : int = parent1 + 1
 
-        c_max : float = np.maximum(population[parent1], population[parent2])
-        c_min : float = np.minimum(population[parent1], population[parent2])
+        c_max : np.ndarray[float] = np.maximum(population[parent1], population[parent2])
+        c_min : np.ndarray[float] = np.minimum(population[parent1], population[parent2])
 
-        I : float = c_max - c_min
+        I : np.ndarray[float] = c_max - c_min
 
         population[parent1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
         population[parent2] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
@@ -56,9 +56,8 @@ def localSearch(chromosome : np.ndarray[float], fitness : float, fitness_functio
     evaluations : int = 0
     best_fitness : float = fitness
     best_chromosome : np.ndarray[float] = np.copy(chromosome)
-    improvement : bool = False
 
-    while evaluations < max_evaluations and not improvement:
+    while evaluations < max_evaluations:
         mutation_order : np.ndarray[int] = np.random.permutation(len(chromosome))
 
         for i in mutation_order:
@@ -69,9 +68,8 @@ def localSearch(chromosome : np.ndarray[float], fitness : float, fitness_functio
             if new_fitness > best_fitness:
                 best_fitness = new_fitness
                 best_chromosome = np.copy(neighbour)
-                improvement = True
 
-            if evaluations >= max_evaluations or improvement:
+            if evaluations >= max_evaluations:
                 break
 
 
@@ -169,7 +167,7 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
 
         accuracy = model.accuracy(X_test, y_test)
 
-        fitness_test = evaluationFunction(accuracy, tasa_red, ALPHA)
+        fitness_test = objetiveFunction(accuracy, tasa_red, ALPHA)
 
         time_end : float = time.time()
 
