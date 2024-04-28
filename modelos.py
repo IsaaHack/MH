@@ -268,10 +268,10 @@ class Genetic_Model(ABC):
             parent1 : int = 2*i
             parent2 : int = parent1 + 1
 
-            c_max : float = np.maximum(population[parent1], population[parent2])
-            c_min : float = np.minimum(population[parent1], population[parent2])
+            c_max : np.ndarray[float] = np.maximum(population[parent1], population[parent2])
+            c_min : np.ndarray[float] = np.minimum(population[parent1], population[parent2])
 
-            I : float = c_max - c_min
+            I : np.ndarray[float] = c_max - c_min
 
             population[parent1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
             population[parent2] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
@@ -451,43 +451,47 @@ class AGG(Genetic_Model):
         super().__init__()
         self.seed = seed
         self._crossover = self._get_crossover_function(crossover)
-        if improved: self._selection = self._best_selection
-        self.population = population
-        self.mutation_rate = mutation_rate
-        self.crossover_rate = crossover_rate
-        self.MAX_EVAL = evaluations
+        if improved: 
+            self._selection = self._best_selection
+            mutation_rate = 2.4
+        self.params = {
+            'max_evaluations' : evaluations,
+            'n_people' : population,
+            'crossover_rate' : crossover_rate,
+            'mutation_rate' : mutation_rate
+        }
         np.random.seed(seed)
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.empty(X_train.shape[1])
-        self.weights = self._fit_AGG(max_evaluations=self.MAX_EVAL, n_people=self.population, crossover_rate=self.crossover_rate, mutation_rate=self.mutation_rate)
+        self.weights = self._fit_AGG(**self.params)
 
     def _selection(self, population, fitnesess):
-        new_population = np.empty((self.population, self.weights.shape[0]))
+        new_population = np.empty_like(population)
 
-        random_indexes = np.empty((self.population, 3), dtype=int)
+        random_indexes = np.empty((population.shape[0], 3), dtype=int)
 
         for i in range(random_indexes.shape[0]):
-            random_indexes[i] = np.random.choice(self.population, 3, replace=False)
+            random_indexes[i] = np.random.choice(population.shape[0], 3, replace=False)
 
         best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
-        new_population = population[random_indexes[np.arange(self.population), best_in_each_group]]
+        new_population = population[random_indexes[np.arange(population.shape[0]), best_in_each_group]]
 
         return new_population
 
     def _best_selection(self, population, fitnesess):
-        new_population = np.empty((self.population, self.weights.shape[0]))
+        new_population = np.empty_like(population)
 
-        random_indexes = np.random.randint(0, self.population, size=(self.population, 3))
+        random_indexes = np.random.randint(0, population.shape[0], size=(population.shape[0], 3))
         best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
-        new_population = population[random_indexes[np.arange(self.population), best_in_each_group]]
+        new_population = population[random_indexes[np.arange(population.shape[0]), best_in_each_group]]
 
         return new_population
 
     def _mutation(self, population, mutation_rate):
-        estimated_mutations = int(mutation_rate * population.size)
+        estimated_mutations = int(mutation_rate * population.shape[0])
 
         mutation = np.random.normal(0, SQRT_03, estimated_mutations)
         genes_to_mutate = np.random.randint(0, population.shape[1], estimated_mutations)
@@ -502,36 +506,40 @@ class AGE(Genetic_Model):
     def __init__(self, crossover : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 1, improved : bool = False):
         super().__init__()
         self.seed = seed
+        if improved: 
+            self._selection = self._best_selection
+            mutation_rate = 0.42
         self._crossover = self._get_crossover_function(crossover)
-        self.population = population
-        self.mutation_rate = mutation_rate
-        self.crossover_rate = crossover_rate
-        self.MAX_EVAL = evaluations
-        self.improved = improved
+        self.params = {
+            'max_evaluations' : evaluations,
+            'n_people' : population,
+            'crossover_rate' : crossover_rate,
+            'mutation_rate' : mutation_rate
+        }
         np.random.seed(seed)
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.empty(X_train.shape[1])
-        self.weights = self._fit_AGE(max_evaluations=self.MAX_EVAL, n_people=self.population, crossover_rate=self.crossover_rate, mutation_rate=self.mutation_rate)
+        self.weights = self._fit_AGE(**self.params) 
 
     def _best_selection(self, population, fitnesess):
-        new_population = np.empty((2, self.weights.shape[0]))
+        new_population = np.empty((2, population.shape[1]))
 
-        random_indexes = np.random.choice(self.population, (2), replace=False)
+        random_indexes = np.random.choice(population.shape[0], (2), replace=False)
 
         new_population = population[random_indexes]
 
         return new_population
     
     def _selection(self, population, fitnesess):
-        new_population = np.empty((2, self.weights.shape[0]))
+        new_population = np.empty((2, population.shape[1]))
 
         random_indexes = np.empty((2, 3), dtype=int)
 
         for i in range(random_indexes.shape[0]):
-            random_indexes[i] = np.random.choice(self.population, 3, replace=False)
+            random_indexes[i] = np.random.choice(population.shape[0], 3, replace=False)
 
         best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
 
@@ -551,45 +559,50 @@ class AM(Genetic_Model):
     def __init__(self, crossover : str, bl_selection : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7, improved : bool = False):
         super().__init__()
         self.seed = seed
-        if improved: self._selection = self._best_selection
+        if improved: 
+            self._selection = self._best_selection
+            mutation_rate = 2.4
         self._crossover = self._get_crossover_function(crossover)
         self._bl_selection = self._get_bl_selection_function(bl_selection)
-        self.MAX_EVAL = evaluations
-        self.population = population
-        self.mutation_rate = mutation_rate
-        self.crossover_rate = crossover_rate
+        self.params = {
+            'max_evaluations' : evaluations,
+            'n_people' : population,
+            'crossover_rate' : crossover_rate,
+            'mutation_rate' : mutation_rate,
+            'bl_rate' : 10
+        }
         np.random.seed(seed)
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
         self.y_train = y_train
         self.weights = np.empty(X_train.shape[1])
-        self.weights = self._fit_AM(max_evaluations=self.MAX_EVAL, n_people=self.population, crossover_rate=self.crossover_rate, mutation_rate=self.mutation_rate, bl_rate=10)
+        self.weights = self._fit_AM(**self.params)
 
-    def _best_selection(self, population, fitnesess):
-        new_population = np.empty((self.population, self.weights.shape[0]))
-
-        random_indexes = np.random.randint(0, self.population, size=(self.population, 3))
-        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
-        new_population = population[random_indexes[np.arange(self.population), best_in_each_group]]
-
-        return new_population
-    
     def _selection(self, population, fitnesess):
-        new_population = np.empty((self.population, self.weights.shape[0]))
+        new_population = np.empty_like(population)
 
-        random_indexes = np.empty((self.population, 3), dtype=int)
+        random_indexes = np.empty((population.shape[0], 3), dtype=int)
 
         for i in range(random_indexes.shape[0]):
-            random_indexes[i] = np.random.choice(self.population, 3, replace=False)
+            random_indexes[i] = np.random.choice(population.shape[0], 3, replace=False)
 
         best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
-        new_population = population[random_indexes[np.arange(self.population), best_in_each_group]]
+        new_population = population[random_indexes[np.arange(population.shape[0]), best_in_each_group]]
+
+        return new_population
+
+    def _best_selection(self, population, fitnesess):
+        new_population = np.empty_like(population)
+
+        random_indexes = np.random.randint(0, population.shape[0], size=(population.shape[0], 3))
+        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
+        new_population = population[random_indexes[np.arange(population.shape[0]), best_in_each_group]]
 
         return new_population
 
     def _mutation(self, population, mutation_rate):
-        estimated_mutations = int(mutation_rate * population.size)
+        estimated_mutations = int(mutation_rate * population.shape[0])
 
         mutation = np.random.normal(0, SQRT_03, estimated_mutations)
         genes_to_mutate = np.random.randint(0, population.shape[1], estimated_mutations)

@@ -258,6 +258,8 @@ def main():
     params = models_params.params
     model_names = models_params.model_name
 
+    global_dataframe = pd.DataFrame()
+
     for m, model_params, model_name in zip(models, params, model_names):
         print()
         print('Dataset:', cadena)
@@ -288,12 +290,35 @@ def main():
             if not os.path.exists('./results'):
                 os.makedirs('./results')
             try:
-                df.to_csv('./results/'+cadena+'_'+model_name+'.csv', index=False)
+                if 'improved' in model_params:
+                    if model_params['improved']:
+                        df.to_csv('./results/'+cadena+'_'+model_name+'_improved.csv', index=False)
+                    else:
+                        df.to_csv('./results/'+cadena+'_'+model_name+'.csv', index=False)
+                else:
+                    df.to_csv('./results/'+cadena+'_'+model_name+'.csv', index=False)
                 print('Resultados guardados correctamente')
             except:
                 print('Error al guardar los resultados')
             print()
 
+        global_dataframe = pd.concat([global_dataframe, df], axis=1)
+
+
+    if guardar == 's' and model_type == 'ALL':
+        print()
+        print('Guardando resultados globales en archivo CSV...')
+        if not os.path.exists('./results'):
+            os.makedirs('./results')
+        try:
+            if version_mejorada:
+                global_dataframe.to_csv('./results/'+cadena+'_ALL_improved.csv', index=False)
+            else:
+                global_dataframe.to_csv('./results/'+cadena+'_ALL.csv', index=False)
+            print('Resultados guardados correctamente')
+        except:
+            print('Error al guardar los resultados')
+        print()
 
 
     time_total_end = time.time()
