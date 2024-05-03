@@ -39,7 +39,7 @@ DEFAULT_MAX_EVAL : int = 15000
 
 '''------------------------------------MODELO GENERICO------------------------------------'''
 
-class Genetic_Model(ABC):
+class Generic_Model(ABC):
     @abstractmethod
     def __init__(self):
         self.X_train = None
@@ -106,10 +106,12 @@ class Genetic_Model(ABC):
 
         for i in range(len(self.X_train)):
             n_hits = all_index[i][self.y_train[i] == self.y_train[all_index[i]]]
+
             try:
                 nearest_hit = n_hits[0]
             except:
                 nearest_hit = -1
+
             nearest_miss = all_index[i][self.y_train[i] != self.y_train[all_index[i]]][0]
 
             if nearest_hit != -1 and distances[i][nearest_hit] != np.inf:
@@ -163,206 +165,11 @@ class Genetic_Model(ABC):
         neighbor[mutation_order] = np.clip(neighbor[mutation_order] + mutation, 0, 1)
 
         return neighbor
-    
-    def _fit_AGG(self, max_evaluations : int = DEFAULT_MAX_EVAL, n_people : int = 50,  crossover_rate : float = 0.7, mutation_rate : float = 0.08):
-        eval : int = 0
-        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
-
-        population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
-        fitnesess = np.apply_along_axis(self._fitness, 1, population)
-        eval += n_people
-        progress_bar.update(n_people)
-        best = np.copy(population[np.argmax(fitnesess)])
-        best_fit = fitnesess[np.argmax(fitnesess)]
-
-        while eval < max_evaluations:
-            new_population = self._selection(population, fitnesess)
-            self._crossover(new_population, crossover_rate)
-            self._mutation(new_population, mutation_rate)
-
-            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
-            eval += n_people
-            progress_bar.update(n_people)
-
-            best_new = new_population[np.argmax(fitnesess)]
-            best_new_fit = fitnesess[np.argmax(fitnesess)]
-
-            if best_new_fit > best_fit:
-                best = best_new
-                best_fit = best_new_fit
-            else:
-                new_population[np.argmin(fitnesess)] = best
-                fitnesess[np.argmin(fitnesess)] = best_fit
-
-            population = new_population
-
-        return np.copy(best)
-    
-
-    def _fit_AGE(self, max_evaluations : int = DEFAULT_MAX_EVAL, n_people : int = 50,  crossover_rate : float = 1, mutation_rate : float = 0.08):
-        eval : int = 0
-        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
-
-        population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
-        fitnesess = np.apply_along_axis(self._fitness, 1, population)
-        eval += n_people
-        progress_bar.update(n_people)
-
-        while eval < max_evaluations:
-            childrens = self._selection(population, fitnesess)
-            self._crossover(childrens, crossover_rate)
-            self._mutation(childrens, mutation_rate)
-
-            fitnesess_children = np.apply_along_axis(self._fitness, 1, childrens)
-            eval += childrens.shape[0]
-            progress_bar.update(childrens.shape[0])
-
-            two_worst = np.argsort(fitnesess)[:2]
-
-            p = np.concatenate((childrens, population[two_worst]))
-            f = np.concatenate((fitnesess_children, fitnesess[two_worst]))
-
-            best_two = np.argsort(f)[::-1][:2]
-
-            population[two_worst] = p[best_two]
-            fitnesess[two_worst] = f[best_two]
-
-        return np.copy(population[np.argmax(fitnesess)])
-    
-    def _selection(self, population, fitnesess):
-        pass
-
-    def _crossover(self, population, crossover_rate):
-        pass
-    
-    def _mutation(self, population, mutation_rate):
-        pass
-
-    def _get_crossover_function(self, croosover : str):
-        croosover = croosover.upper()
-
-        match croosover:
-            case 'CA':
-                return self._crossoverCA
-            case 'BLX':
-                return self._crossoverBLX
-            case _:
-                exception = ValueError(f"El crossover {croosover} no está implementado.")
-                raise exception
-
-    def _crossoverCA(self, population, crossover_rate):
-        estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
-        alphas = np.random.uniform(0, 1, estimated_crossovers*2)
-
-        for i in range(estimated_crossovers):
-            parent1 : int = 2*i
-            parent2 : int = parent1 + 1
-
-            population[parent1] = alphas[2*i] * population[parent1] + (1 - alphas[2*i]) * population[parent2]
-            population[parent2] = alphas[2*i+1] * population[parent1] + (1 - alphas[2*i+1]) * population[parent2]
-
-    def _crossoverBLX(self, population, crossover_rate, alpha : float = 0.3):
-        estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
-
-        for i in range(estimated_crossovers):
-            parent1 : int = 2*i
-            parent2 : int = parent1 + 1
-
-            c_max : np.ndarray[float] = np.maximum(population[parent1], population[parent2])
-            c_min : np.ndarray[float] = np.minimum(population[parent1], population[parent2])
-
-            I : np.ndarray[float] = c_max - c_min
-
-            population[parent1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
-            population[parent2] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
-
-        population[:2*estimated_crossovers] = np.clip(population[:2*estimated_crossovers], 0, 1)
-
-
-    def _fit_AM(self, max_evaluations : int = DEFAULT_MAX_EVAL, n_people : int = 50,  crossover_rate : float = 0.7, mutation_rate : float = 0.08, bl_rate : int = 10):
-        eval : int = 0
-        n_generations : int = 0
-        bl_evaluations : int = self.X_train.shape[1] * 2
-        bl_iterations : int = bl_evaluations
-
-        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
-
-        population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
-        fitnesess = np.apply_along_axis(self._fitness, 1, population)
-        eval += n_people
-        n_generations += 1
-        progress_bar.update(n_people)
-
-        best = np.copy(population[np.argmax(fitnesess)])
-        best_fit = fitnesess[np.argmax(fitnesess)]
-
-        while eval < max_evaluations:
-            new_population = self._selection(population, fitnesess)
-            self._crossover(new_population, crossover_rate)
-            self._mutation(new_population, mutation_rate)
-
-            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
-            eval += n_people
-            progress_bar.update(n_people)
-
-            if n_generations % bl_rate == 0:
-                bl_selection = self._bl_selection(new_population, fitnesess)
-
-                if max_evaluations - eval >= bl_evaluations * bl_selection.size:
-                    #bl_evaluations = (max_evaluations - eval) // bl_selection.size
-                
-                    for index in bl_selection:
-                        new_population[index], fitnesess[index], n_eval_bl = self._fit_BL(weights=new_population[index], fitness=fitnesess[index], max_iter=bl_iterations, max_evaluations=bl_evaluations, pb=False)
-                        
-                        eval += n_eval_bl
-                        progress_bar.update(n_eval_bl)
-
-
-            best_new = new_population[np.argmax(fitnesess)]
-            best_new_fit = fitnesess[np.argmax(fitnesess)]
-
-            if best_new_fit > best_fit:
-                best = best_new
-                best_fit = best_new_fit
-            else:
-                new_population[np.argmin(fitnesess)] = best
-                fitnesess[np.argmin(fitnesess)] = best_fit
-
-            population = new_population
-            n_generations += 1
-
-        return np.copy(best)
-    
-    def _bl_selection(self, population, fitnesess, p : float = 0.1):
-        pass
-
-    def _get_bl_selection_function(self, selection : str):
-        selection = selection.lower()
-
-        match selection:
-            case 'best':
-                return self._select_best_chromosomes
-            case 'random':
-                return self._select_random_chromosomes
-            case 'all':
-                return self._select_all_chromosomes
-            case _:
-                exception = ValueError(f"La selección {selection} no está implementada.")
-                raise exception
-
-    def _select_best_chromosomes(self, population : np.ndarray[float], fitnesses : np.ndarray[float], p : float = 0.1):
-        return np.argsort(fitnesses)[::-1][:int(np.ceil(p*len(population)))]
-
-    def _select_random_chromosomes(self, population : np.ndarray[float], fitnesses : np.ndarray[float], p : float = 0.1):
-        return np.random.choice(len(population), int(np.ceil(p*len(population))), replace=False)
-
-    def _select_all_chromosomes(self, population : np.ndarray[float], fitnesses : np.ndarray[float], p : float = 1):
-        return np.arange(len(population))
 
 
 '''------------------------------------MODELOS------------------------------------'''
 
-class KNN(Genetic_Model):
+class KNN(Generic_Model):
     def __init__(self, k=1):
         super().__init__()
         self.k = k
@@ -417,7 +224,7 @@ class KNN(Genetic_Model):
 
 '''------------------------------------RELIEF(GREEDY)------------------------------------'''
 
-class Relief(Genetic_Model):
+class Relief(Generic_Model):
     def __init__(self):
         super().__init__()
 
@@ -429,7 +236,7 @@ class Relief(Genetic_Model):
 
 '''------------------------------------MODELO BL------------------------------------'''
 
-class BL(Genetic_Model):
+class BL(Generic_Model):
     def __init__(self, seed : int = 7, evaluations : int = 15000):
         super().__init__()
         self.seed = seed
@@ -444,16 +251,13 @@ class BL(Genetic_Model):
         self.weights, fitness, n_eval = self._fit_BL(self.weights, max_iter=MAX_ITER, max_evaluations=self.MAX_EVAL, pb=True)
 
 
-'''------------------------------------MODELO AGG------------------------------------'''
+'''------------------------------------MODELO GENETICO------------------------------------'''
 
-class AGG(Genetic_Model):
-    def __init__(self, crossover : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7, improved : bool = False):
+class Genetic(Generic_Model):
+    def __init__(self, crossover : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7):
         super().__init__()
         self.seed = seed
         self._crossover = self._get_crossover_function(crossover)
-        if improved: 
-            self._selection = self._best_selection
-            mutation_rate = 2.4
         self.params = {
             'max_evaluations' : evaluations,
             'n_people' : population,
@@ -461,6 +265,166 @@ class AGG(Genetic_Model):
             'mutation_rate' : mutation_rate
         }
         np.random.seed(seed)
+
+    @abstractmethod
+    def fit(self, X_train, y_train):
+        pass
+
+    def _fit_AGG(self, max_evaluations : int = DEFAULT_MAX_EVAL, n_people : int = 50,  crossover_rate : float = 0.7, mutation_rate : float = 0.08):
+        eval : int = 0
+        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
+
+        population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
+        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        eval += n_people
+        progress_bar.update(n_people)
+        best = np.copy(population[np.argmax(fitnesess)])
+        best_fit = fitnesess[np.argmax(fitnesess)]
+
+        # import matplotlib.pyplot as plt
+        # import pandas as pd
+
+        # df = pd.DataFrame()
+        # df = pd.concat([df, pd.DataFrame({'iter': eval, 'best': best_fit, 'mean': np.mean(fitnesess), 'worst': np.min(fitnesess)}, index=[0])])
+
+        while eval < max_evaluations:
+            new_population = self._selection(population, fitnesess)
+            self._crossover(new_population, crossover_rate)
+            self._mutation(new_population, mutation_rate)
+
+            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
+            eval += n_people
+            progress_bar.update(n_people)
+
+            best_new = new_population[np.argmax(fitnesess)]
+            best_new_fit = fitnesess[np.argmax(fitnesess)]
+
+            if best_new_fit > best_fit:
+                best = best_new
+                best_fit = best_new_fit
+            else:
+                new_population[np.argmin(fitnesess)] = best
+                fitnesess[np.argmin(fitnesess)] = best_fit
+
+            population = new_population
+        #     df = pd.concat([df, pd.DataFrame({'iter': eval, 'best': best_fit, 'mean': np.mean(fitnesess), 'worst': np.min(fitnesess)}, index=[0])])
+
+        # plt.plot(df['iter'], df['best'], label='Best')
+        # plt.plot(df['iter'], df['mean'], label='Mean')
+        # plt.plot(df['iter'], df['worst'], label='Worst')
+        # plt.title(f"Fitness de AGG con la función croosover {self._crossover.__name__} y la función de selección {self._selection.__name__}")
+        # plt.legend()
+        # plt.show()
+
+        return np.copy(best)
+    
+
+    def _fit_AGE(self, max_evaluations : int = DEFAULT_MAX_EVAL, n_people : int = 50,  crossover_rate : float = 1, mutation_rate : float = 0.08):
+        eval : int = 0
+        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
+
+        population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
+        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        eval += n_people
+        progress_bar.update(n_people)
+
+        # import matplotlib.pyplot as plt
+        # import pandas as pd
+
+        # df = pd.DataFrame()
+        # df = pd.concat([df, pd.DataFrame({'iter': eval, 'best': np.max(fitnesess), 'mean': np.mean(fitnesess), 'worst': np.min(fitnesess)}, index=[0])])
+
+
+        while eval < max_evaluations:
+            childrens = self._selection(population, fitnesess)
+            self._crossover(childrens, crossover_rate)
+            self._mutation(childrens, mutation_rate)
+
+            fitnesess_children = np.apply_along_axis(self._fitness, 1, childrens)
+            eval += childrens.shape[0]
+            progress_bar.update(childrens.shape[0])
+
+            two_worst = np.argsort(fitnesess)[:2]
+
+            p = np.concatenate((childrens, population[two_worst]))
+            f = np.concatenate((fitnesess_children, fitnesess[two_worst]))
+
+            best_two = np.argsort(f)[::-1][:2]
+
+            population[two_worst] = p[best_two]
+            fitnesess[two_worst] = f[best_two]
+
+        #     df = pd.concat([df, pd.DataFrame({'iter': eval, 'best': np.max(fitnesess), 'mean': np.mean(fitnesess), 'worst': np.min(fitnesess)}, index=[0])])
+
+        # plt.plot(df['iter'], df['best'], label='Best')
+        # plt.plot(df['iter'], df['mean'], label='Mean')
+        # plt.plot(df['iter'], df['worst'], label='Worst')
+        # plt.title(f"Fitness de AGE con la función croosover {self._crossover.__name__} y la función de selección {self._selection.__name__}")
+        # plt.legend()
+        # plt.show()
+
+        return np.copy(population[np.argmax(fitnesess)])
+    
+    @abstractmethod
+    def _selection(self, population, fitnesess):
+        pass
+
+    def _crossover(self, population, crossover_rate):
+        pass
+    
+    @abstractmethod
+    def _mutation(self, population, mutation_rate):
+        pass
+
+    def _get_crossover_function(self, croosover : str):
+        croosover = croosover.upper()
+
+        match croosover:
+            case 'CA':
+                return self._crossoverCA
+            case 'BLX':
+                return self._crossoverBLX
+            case _:
+                exception = ValueError(f"El crossover {croosover} no está implementado.")
+                raise exception
+
+    def _crossoverCA(self, population, crossover_rate):
+        estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
+        alphas = np.random.uniform(0, 1, estimated_crossovers*2)
+
+        for i in range(estimated_crossovers):
+            parent1 : int = 2*i
+            parent2 : int = parent1 + 1
+
+            population[parent1] = alphas[2*i] * population[parent1] + (1 - alphas[2*i]) * population[parent2]
+            population[parent2] = alphas[2*i+1] * population[parent1] + (1 - alphas[2*i+1]) * population[parent2]
+
+    def _crossoverBLX(self, population, crossover_rate, alpha : float = 0.3):
+        estimated_crossovers : int = np.floor(crossover_rate * len(population) / 2).astype(int)
+
+        for i in range(estimated_crossovers):
+            parent1 : int = 2*i
+            parent2 : int = parent1 + 1
+
+            c_max : np.ndarray[float] = np.maximum(population[parent1], population[parent2])
+            c_min : np.ndarray[float] = np.minimum(population[parent1], population[parent2])
+
+            I : np.ndarray[float] = c_max - c_min
+
+            population[parent1] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+            population[parent2] = np.random.uniform(c_min - alpha * I, c_max + alpha * I)
+
+        population[:2*estimated_crossovers] = np.clip(population[:2*estimated_crossovers], 0, 1)
+
+
+'''------------------------------------MODELO AGG------------------------------------'''
+
+class AGG(Genetic):
+    def __init__(self, crossover : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7, improved : bool = False):
+        super().__init__(crossover=crossover, seed=seed, evaluations=evaluations, population=population, mutation_rate=mutation_rate, crossover_rate=crossover_rate)
+        if improved: 
+            self._selection = self._best_selection
+            self.params['mutation_rate'] = 2.4
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
@@ -502,21 +466,12 @@ class AGG(Genetic_Model):
 
 '''------------------------------------MODELO AGE------------------------------------'''
 
-class AGE(Genetic_Model):
+class AGE(Genetic):
     def __init__(self, crossover : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 1, improved : bool = False):
-        super().__init__()
-        self.seed = seed
+        super().__init__(crossover=crossover, seed=seed, evaluations=evaluations, population=population, mutation_rate=mutation_rate, crossover_rate=crossover_rate)
         if improved: 
             self._selection = self._best_selection
-            mutation_rate = 0.42
-        self._crossover = self._get_crossover_function(crossover)
-        self.params = {
-            'max_evaluations' : evaluations,
-            'n_people' : population,
-            'crossover_rate' : crossover_rate,
-            'mutation_rate' : mutation_rate
-        }
-        np.random.seed(seed)
+            self.params['mutation_rate'] = 0.42
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
@@ -555,23 +510,11 @@ class AGE(Genetic_Model):
 
 '''------------------------------------MODELO AM------------------------------------'''
 
-class AM(Genetic_Model):
-    def __init__(self, crossover : str, bl_selection : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7, improved : bool = False):
-        super().__init__()
-        self.seed = seed
-        if improved: 
-            self._selection = self._best_selection
-            mutation_rate = 2.4
-        self._crossover = self._get_crossover_function(crossover)
+class AM(AGG):
+    def __init__(self, crossover : str, bl_selection : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7, bl_rate = 10, improved : bool = False):
+        super().__init__(crossover=crossover, seed=seed, evaluations=evaluations, population=population, mutation_rate=mutation_rate, crossover_rate=crossover_rate, improved=improved)
         self._bl_selection = self._get_bl_selection_function(bl_selection)
-        self.params = {
-            'max_evaluations' : evaluations,
-            'n_people' : population,
-            'crossover_rate' : crossover_rate,
-            'mutation_rate' : mutation_rate,
-            'bl_rate' : 10
-        }
-        np.random.seed(seed)
+        self.params['bl_rate'] = bl_rate
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
@@ -579,33 +522,107 @@ class AM(Genetic_Model):
         self.weights = np.empty(X_train.shape[1])
         self.weights = self._fit_AM(**self.params)
 
-    def _selection(self, population, fitnesess):
-        new_population = np.empty_like(population)
+    def _fit_AM(self, max_evaluations : int = DEFAULT_MAX_EVAL, n_people : int = 50,  crossover_rate : float = 0.7, mutation_rate : float = 0.08, bl_rate : int = 10):
+        eval : int = 0
+        n_generations : int = 0
 
-        random_indexes = np.empty((population.shape[0], 3), dtype=int)
+        bl_evaluations = 2*self.X_train.shape[1]
 
-        for i in range(random_indexes.shape[0]):
-            random_indexes[i] = np.random.choice(population.shape[0], 3, replace=False)
+        bl_parameters = {
+            'max_iter' : bl_evaluations,
+            'max_evaluations' : bl_evaluations,
+            'pb' : False
+        }
 
-        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
-        new_population = population[random_indexes[np.arange(population.shape[0]), best_in_each_group]]
+        progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
 
-        return new_population
+        population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
+        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        eval += n_people
+        n_generations += 1
+        progress_bar.update(n_people)
 
-    def _best_selection(self, population, fitnesess):
-        new_population = np.empty_like(population)
+        best = np.copy(population[np.argmax(fitnesess)])
+        best_fit = fitnesess[np.argmax(fitnesess)]
 
-        random_indexes = np.random.randint(0, population.shape[0], size=(population.shape[0], 3))
-        best_in_each_group = np.argmax(fitnesess[random_indexes], axis=1)
-        new_population = population[random_indexes[np.arange(population.shape[0]), best_in_each_group]]
+        # import matplotlib.pyplot as plt
+        # import pandas as pd
 
-        return new_population
+        # df = pd.DataFrame()
+        # df = pd.concat([df, pd.DataFrame({'iter': eval, 'best': np.max(fitnesess), 'mean': np.mean(fitnesess), 'worst': np.min(fitnesess)}, index=[0])])
 
-    def _mutation(self, population, mutation_rate):
-        estimated_mutations = int(mutation_rate * population.shape[0])
+        while eval < max_evaluations:
+            new_population = self._selection(population, fitnesess)
+            self._crossover(new_population, crossover_rate)
+            self._mutation(new_population, mutation_rate)
 
-        mutation = np.random.normal(0, SQRT_03, estimated_mutations)
-        genes_to_mutate = np.random.randint(0, population.shape[1], estimated_mutations)
-        people_to_mutate = np.random.randint(0, population.shape[0], estimated_mutations)
+            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
+            eval += n_people
+            progress_bar.update(n_people)
 
-        population[people_to_mutate, genes_to_mutate] = np.clip(population[people_to_mutate, genes_to_mutate] + mutation, 0, 1)
+            if n_generations % bl_rate == 0:
+                bl_selection = self._bl_selection(new_population, fitnesess)
+
+                if max_evaluations - eval >= bl_evaluations * bl_selection.size:
+                    #bl_evaluations = (max_evaluations - eval) // bl_selection.size
+                
+                    for index in bl_selection:
+                        bl_parameters['weights'] = new_population[index]
+                        bl_parameters['fitness'] = fitnesess[index]
+
+                        new_population[index], fitnesess[index], n_eval_bl = self._fit_BL(**bl_parameters)
+                        
+                        eval += n_eval_bl
+                        progress_bar.update(n_eval_bl)
+
+
+            best_new = new_population[np.argmax(fitnesess)]
+            best_new_fit = fitnesess[np.argmax(fitnesess)]
+
+            if best_new_fit > best_fit:
+                best = best_new
+                best_fit = best_new_fit
+            else:
+                new_population[np.argmin(fitnesess)] = best
+                fitnesess[np.argmin(fitnesess)] = best_fit
+
+            population = new_population
+            n_generations += 1
+        #     df = pd.concat([df, pd.DataFrame({'iter': eval, 'best': best_fit, 'mean': np.mean(fitnesess), 'worst': np.min(fitnesess)}, index=[0])])
+
+        # plt.plot(df['iter'], df['best'], label='Best')
+        # plt.plot(df['iter'], df['mean'], label='Mean')
+        # plt.plot(df['iter'], df['worst'], label='Worst')
+        # plt.title(f"Fitness de AM con la función selección de bl {self._bl_selection.__name__} y la función de selección {self._selection.__name__}")
+        # plt.legend()
+        # plt.show()
+
+        return np.copy(best)
+    
+
+    def _bl_selection(self, population, fitnesses, p : float = 0.1):
+        pass
+    
+
+    def _get_bl_selection_function(self, selection : str):
+        selection = selection.lower()
+
+        match selection:
+            case 'best':
+                return self._select_best_chromosomes
+            case 'random':
+                return self._select_random_chromosomes
+            case 'all':
+                return self._select_all_chromosomes
+            case _:
+                exception = ValueError(f"La selección {selection} no está implementada.")
+                raise exception
+
+    def _select_best_chromosomes(self, population : np.ndarray[float], fitnesses : np.ndarray[float], p : float = 0.1):
+        return np.argsort(fitnesses)[::-1][:int(np.ceil(p*len(population)))]
+
+    def _select_random_chromosomes(self, population : np.ndarray[float], fitnesses : np.ndarray[float], p : float = 0.1):
+        return np.random.choice(len(population), int(np.ceil(p*len(population))), replace=False)
+
+    def _select_all_chromosomes(self, population : np.ndarray[float], fitnesses : np.ndarray[float], p : float = 1):
+        return np.arange(len(population))

@@ -130,12 +130,14 @@ def main():
         version_mejorada = input().lower() == 's'
 
     if model_type == 'AGG' or model_type == 'AGE':
-        print('Introduce el operador de cruce [Opciones: CA[DEFAULT][1], BLX[2]]:')
+        print('Introduce el operador de cruce [Opciones: CA[DEFAULT][1], BLX[2]], ALL[3]:')
         cruce = input()
         if cruce == '' or cruce == '1' or cruce == 'CA':
             cruce = 'CA'
         elif cruce == 'BLX' or cruce == '2':
             cruce = 'BLX'
+        elif cruce == 'ALL' or cruce == '3':
+            cruce = 'ALL'
         else:
             print('Operador de cruce no válido')
             exit()
@@ -171,13 +173,25 @@ def main():
             model = ['BL']
             params = [{}]
         case 'AGG':
-            model = ['AGG']
-            model_name = ['AGG-'+cruce]
-            params = [{'crossover' : cruce, 'improved' : version_mejorada}]
+            if cruce == 'ALL':
+                model = ['AGG', 'AGG']
+                model_name = ['AGG-CA', 'AGG-BLX']
+                params = [{'crossover' : 'CA', 'improved' : version_mejorada},
+                          {'crossover' : 'BLX', 'improved' : version_mejorada}]
+            else:
+                model = ['AGG']
+                model_name = ['AGG-'+cruce]
+                params = [{'crossover' : cruce, 'improved' : version_mejorada}]
         case 'AGE':
-            model = ['AGE']
-            model_name = ['AGE-'+cruce]
-            params = [{'crossover' : cruce, 'improved' : version_mejorada}]
+            if cruce == 'ALL':
+                model = ['AGE', 'AGE']
+                model_name = ['AGE-CA', 'AGE-BLX']
+                params = [{'crossover' : 'CA', 'improved' : version_mejorada},
+                          {'crossover' : 'BLX', 'improved' : version_mejorada}]
+            else:
+                model = ['AGE']
+                model_name = ['AGE-'+cruce]
+                params = [{'crossover' : cruce, 'improved' : version_mejorada}]
         case 'AM':
             model = ['AM']
             model_name = ['AM-'+seleccion]
