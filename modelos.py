@@ -56,7 +56,9 @@ class Generic_Model(ABC):
         weights_to_use = self.weights[self.weights >= 0.1]
         atributes_to_use = X[:, self.weights >= 0.1]
 
-        distances = sp.squareform(sp.pdist(atributes_to_use, 'euclidean', w=weights_to_use))
+        atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
+
+        distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2))
         distances[np.diag_indices(distances.shape[0])] = np.inf
         distances = distances[self.X_train.shape[0]:, :self.X_train.shape[0]]
         index_predictions = np.argmin(distances, axis=1)
@@ -74,7 +76,9 @@ class Generic_Model(ABC):
         weights_to_use = weights[weights >= 0.1]
         atributes_to_use = self.X_train[:, weights >= 0.1]
 
-        distances = sp.squareform(sp.pdist(atributes_to_use, 'euclidean', w=weights_to_use))
+        atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
+
+        distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2))
         distances[np.diag_indices(distances.shape[0])] = np.inf
         
         index_predictions = np.argmin(distances, axis=1)
