@@ -45,6 +45,7 @@ class Generic_Model(ABC):
         self.X_train = None
         self.y_train = None
         self.weights = None
+        self.X_train_gpu = None
 
     @abstractmethod
     def fit(self, X_train, y_train):
@@ -180,6 +181,7 @@ class KNN(Generic_Model):
 
     def fit(self, X_train : np.ndarray, y_train : np.ndarray):
         self.X_train = X_train
+        if(CUDA) : self.X_train_gpu = cp.array(X_train)
         self.y_train = y_train
         self.weights : np.ndarray = np.ones(X_train.shape[1])
 
@@ -234,6 +236,7 @@ class Relief(Generic_Model):
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
+        if(CUDA) : self.X_train_gpu = cp.array(X_train)
         self.y_train = y_train
         self.weights = np.zeros(X_train.shape[1])
         self.weights = self._fit_Relief(self.weights)
@@ -249,6 +252,7 @@ class BL(Generic_Model):
 
     def fit(self, X_train : np.ndarray, y_train : np.ndarray):
         self.X_train = X_train
+        if(CUDA) : self.X_train_gpu = cp.array(X_train)
         self.y_train = y_train
         self.weights = np.random.uniform(0, 1, X_train.shape[1])
         MAX_ITER = 20*self.weights.shape[0]
