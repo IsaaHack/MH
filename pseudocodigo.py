@@ -214,6 +214,348 @@ def fit_BL(X, y, max_evaluaciones, semilla=7):
 
     return pesos
 
+def fit_AGG(X, y, max_evaluaciones, tipo_cruce, semilla=7, poblacion = 50, prob_cruce = 0.7, prob_mutacion = 0.08):
+    # Semilla para inicializar pesos aleatorios
+    np.random.seed(semilla)
+    evaluaciones = 0
+
+    # Inicializar la poblacion con pesos aleatorios de tamaño poblacion x columnas de X
+    poblacion = np.random.uniform(0, 1, size=(poblacion, n_columnas(X)))
+
+    # Initializar fitness de la poblacion
+    fitness_poblacion = np.empty_like(poblacion)
+
+    for i in range(n_filas(poblacion)):
+        fitness_poblacion[i] = fitness(X, y, poblacion[i])
+        evaluaciones += 1
+
+    # Obtener el mejor individuo
+    fitness_mejor_individuo = np.max(fitness_poblacion)
+    mejor_individuo = poblacion[np.argmax(fitness_poblacion)]
+
+    # Mientras no se alcance el maximo de evaluaciones
+    while evaluaciones < max_evaluaciones:
+        # Seleccionar padres
+        padres = seleccionar_padres_AGG(poblacion, fitness_poblacion)
+
+        # Cruzar padres
+        hijos = cruce(padres, prob_cruce, tipo_cruce)
+
+        # Mutar hijos
+        mutar_AGG(hijos, prob_mutacion)
+
+        # Evaluar hijos
+        for i in range(n_filas(hijos)):
+            fitness_poblacion[i] = fitness(X, y, hijos[i])
+            evaluaciones += 1
+
+        #Reemplazar los peores individuos
+
+        # Mejor de la nueva generacion
+        mejor_hijo = np.argmax(fitness_poblacion)
+        fitness_mejor_hijo = np.max(fitness_poblacion)
+
+        # Si el mejor hijo es mejor que el mejor individuo, lo actualizamos
+        if fitness_mejor_hijo > fitness_mejor_individuo:
+            mejor_individuo = hijos[mejor_hijo]
+            fitness_mejor_individuo = fitness_mejor_hijo
+        else:
+            # Si no, reemplazamos el peor hijo por el mejor individuo
+            peor_hijo = np.argmin(fitness_poblacion)
+            hijos[peor_hijo] = mejor_individuo
+            fitness_poblacion[peor_hijo] = fitness_mejor_individuo
+
+        # Actualizamos la poblacion
+        poblacion = hijos
+
+    # Devolvemos el mejor individuo
+    return mejor_individuo
+
+def seleccionar_padres_AGG(poblacion, fitness_poblacion):
+    # Seleccionar padres por torneo
+    padres = []
+
+    for i in range(n_filas(poblacion)):
+        # Seleccionar tres individuos aleatorios de la poblacion distintos
+        indices_aleatorios = np.random.choice(range(0, n_filas(poblacion)), size=3)
+
+        # Seleccionar el mejor de los tres
+        mejor = np.argmax(fitness_poblacion[indices_aleatorios])
+
+        # Añadir el mejor a la lista de padres
+        padres.append(poblacion[indices_aleatorios[mejor]])
+
+    return padres
+
+def cruce(padres, prob_cruce, tipo_cruce):
+    match tipo_cruce:
+        case 'AC':
+            return cruce_CA(padres, prob_cruce)
+        case 'BLX':
+            return cruce_BLX(padres, prob_cruce)
+        case _:
+            raise ValueError("Tipo de cruce no válido.")
+        
+
+def cruce_CA(padres, prob_cruce):
+    # Calcular cruces esperados
+    cruces_esperados = int(prob_cruce * n_filas(padres) / 2)
+    # Generar alphas aleatorios
+    alphas = np.random.uniform(0, 1, size=cruces_esperados)
+
+    hijos = []
+
+    for i in range(cruces_esperados):
+        hijo1 = padres[i*2] * alphas[i] + padres[i*2+1] * (1 - alphas[i])
+        hijo2 = padres[i*2+1] * alphas[i+1] + padres[i*2] * (1 - alphas[i+1])
+
+        hijos.append(hijo1)
+        hijos.append(hijo2)
+
+    return hijos
+
+def cruce_BLX(padres, prob_cruce):
+    # Calcular cruces esperados
+    cruces_esperados = int(prob_cruce * n_filas(padres) / 2)
+    # Alphas para el BLX-0.3
+    ALPHA = 0.3
+    
+    hijos = []
+
+    for i in range(cruces_esperados):
+        hijo1 = np.empty(shape=n_columnas(padres))
+        hijo2 = np.empty(shape=n_columnas(padres))
+
+        for j in range(n_columnas(padres)):
+            # Calcular minimo y maximo
+            minimo = min(padres[i*2][j], padres[i*2+1][j])
+            maximo = max(padres[i*2][j], padres[i*2+1][j])
+
+            # Calcular rango
+            I = maximo - minimo
+
+            # Formulas de BLX-0.3
+            # aleatorio( minimo - ALPHA*I, maximo + ALPHA*I)
+
+            # Calcular valores de los hijos
+            hijo1[j] = np.random.uniform(minimo - ALPHA*I, maximo + ALPHA*I)
+            hijo2[j] = np.random.uniform(minimo - ALPHA*I, maximo + ALPHA*I)
+
+        # Añadir hijos a la lista
+        hijos.append(hijo1)
+        hijos.append(hijo2)
+
+    return hijos
+
+def mutar_AGG(hijos, prob_mutacion):
+    mutaciones_esperadas = int(prob_mutacion * n_filas(hijos))
+
+    for i in range(mutaciones_esperadas):
+        # Seleccionar un hijo aleatorio
+        hijo = hijos[np.random.randint(0, n_filas(hijos))]
+
+        # Seleccionar un gen aleatorio
+        gen = np.random.randint(0, n_columnas(hijo))
+
+        # Mutar gen
+        hijo[gen] = np.random.uniform(0, 1)
+
+def fit_AGE(X, y, max_evaluaciones, tipo_cruce, semilla=7, poblacion = 50, prob_cruce = 1, prob_mutacion = 0.08):
+    # Semilla para inicializar pesos aleatorios
+    np.random.seed(semilla)
+    evaluaciones = 0
+
+    # Inicializar la poblacion con pesos aleatorios de tamaño poblacion x columnas de X
+    poblacion = np.random.uniform(0, 1, size=(poblacion, n_columnas(X)))
+
+    # Initializar fitness de la poblacion
+    fitness_poblacion = np.empty_like(poblacion)
+
+    for i in range(n_filas(poblacion)):
+        fitness_poblacion[i] = fitness(X, y, poblacion[i])
+        evaluaciones += 1
+
+    # Mientras no se alcance el maximo de evaluaciones
+    while evaluaciones < max_evaluaciones:
+        # Seleccionar 2 padres
+        padres = seleccionar_padres_AGE(poblacion, fitness_poblacion)
+
+        # Cruzar padres
+        hijos = cruce(padres, prob_cruce, tipo_cruce)
+
+        # Mutar hijos
+        mutar_AGE(hijos, prob_mutacion)
+
+        # Evaluar hijos en este caso son solo 2
+        fitness_hijos = np.empty_like(hijos)
+        for i in range(n_filas(hijos)):
+            fitness_hijos[i] = fitness(X, y, hijos[i])
+            evaluaciones += 1
+
+        # Reemplazar los peores individuos
+        # Los hijos compiten por entrar en la poblacion
+
+        # Obtener los dos peores individuos
+        peores = np.argsort(fitness_poblacion, order='desc')[:2]
+
+        competidores = np.concatenate((hijos, poblacion[peores]))
+        fitness_competidores = np.concatenate((fitness_hijos, fitness_poblacion[peores]))
+
+        # Obtener los dos mejores individuos
+        mejores = np.argsort(fitness_competidores, order='desc')[:2]
+
+        # Reemplazar los peores por los mejores
+        poblacion[peores] = competidores[mejores]
+        fitness_poblacion[peores] = fitness_competidores[mejores]
+
+    # Devolvemos el mejor individuo
+    mejor_individuo = poblacion[np.argmax(fitness_poblacion)]
+    return mejor_individuo
+
+
+def seleccionar_padres_AGE(poblacion, fitness_poblacion):
+    # Seleccionar padres por torneo
+    padres = []
+
+    # Solo se seleccionan dos padres
+    for i in range(2):
+        # Seleccionar tres individuos aleatorios de la poblacion distintos
+        indices_aleatorios = np.random.choice(range(0, n_filas(poblacion)), size=3)
+
+        # Seleccionar el mejor de los tres
+        mejor = np.argmax(fitness_poblacion[indices_aleatorios])
+
+        # Añadir el mejor a la lista de padres
+        padres.append(poblacion[indices_aleatorios[mejor]])
+
+    return padres
+
+def mutar_AGE(hijos, prob_mutacion):
+    for i in range(n_filas(hijos)):
+        for j in range(n_columnas(hijos[i])):
+            if np.random.uniform(0, 1) < prob_mutacion:
+                hijos[i][j] += np.random.normal(0, np.sqrt(0.3))
+                hijos[i][j] = max(hijos[i][j], 0)
+                hijos[i][j] = min(hijos[i][j], 1)
+
+def fit_AM(X, y, max_evaluaciones, tipo_seleccion_bl, semilla=7, poblacion = 50, prob_cruce = 0.7, prob_mutacion = 0.08):
+    # Semilla para inicializar pesos aleatorios
+    np.random.seed(semilla)
+    evaluaciones = 0
+    generaciones = 0
+
+    max_iter_bl = 2*n_columnas(X)
+
+    # Inicializar la poblacion con pesos aleatorios de tamaño poblacion x columnas de X
+    poblacion = np.random.uniform(0, 1, size=(poblacion, n_columnas(X)))
+
+    # Initializar fitness de la poblacion
+    fitness_poblacion = np.empty_like(poblacion)
+
+    for i in range(n_filas(poblacion)):
+        fitness_poblacion[i] = fitness(X, y, poblacion[i])
+        evaluaciones += 1
+
+    generaciones += 1
+
+    # Obtener el mejor individuo
+    fitness_mejor_individuo = np.max(fitness_poblacion)
+    mejor_individuo = poblacion[np.argmax(fitness_poblacion)]
+
+    # Mientras no se alcance el maximo de evaluaciones
+    while evaluaciones < max_evaluaciones:
+        # Seleccionar padres
+        padres = seleccionar_padres_AGG(poblacion, fitness_poblacion)
+
+        # Cruzar padres
+        hijos = cruce(padres, prob_cruce, tipo_cruce='BLX')
+
+        # Mutar hijos
+        mutar_AGG(hijos, prob_mutacion)
+
+        # Evaluar hijos
+        for i in range(n_filas(hijos)):
+            fitness_poblacion[i] = fitness(X, y, hijos[i])
+            evaluaciones += 1
+
+        # Hacemos una seleccion de individuos de bl cada 10 generaciones
+        if generaciones % 10 == 0:
+            # Seleccionar individuos de la poblacion
+            seleccionados = seleccion_BL(poblacion, fitness_poblacion, tipo_seleccion_bl)
+
+            # Si hay sufitientes evaluaciones, aplicamos busqueda local
+            if max_evaluaciones - evaluaciones < max_iter_bl * n_filas(seleccionados):
+                for i in range(n_filas(seleccionados)):
+                    seleccionados[i], fitness_poblacion[i], n_eval_bl = BL(X, y, seleccionados[i], fitness_poblacion[i], max_iter_bl)
+                    evaluaciones += n_eval_bl
+
+
+        #Reemplazar los peores individuos
+
+        # Mejor de la nueva generacion
+        mejor_hijo = np.argmax(fitness_poblacion)
+        fitness_mejor_hijo = np.max(fitness_poblacion)
+
+        # Si el mejor hijo es mejor que el mejor individuo, lo actualizamos
+        if fitness_mejor_hijo > fitness_mejor_individuo:
+            mejor_individuo = hijos[mejor_hijo]
+            fitness_mejor_individuo = fitness_mejor_hijo
+        else:
+            # Si no, reemplazamos el peor hijo por el mejor individuo
+            peor_hijo = np.argmin(fitness_poblacion)
+            hijos[peor_hijo] = mejor_individuo
+            fitness_poblacion[peor_hijo] = fitness_mejor_individuo
+
+        # Actualizamos la poblacion
+        poblacion = hijos
+        generaciones += 1
+
+    # Devolvemos el mejor individuo
+    return mejor_individuo
+
+def BL(X, y, individuo, fitness_individuo, max_eval):
+    # Inicializar el numero de evaluaciones
+    n_evaluaciones = 0
+
+    while n_evaluaciones < max_eval:
+        # Obtener un orden de mutacion aleatorio
+        orden_mutacion = np.random.permutation(len(individuo))
+
+        for mut in orden_mutacion:
+            # Obtener un vecino
+            vecino = obtenerVecino(individuo, mut)
+
+            # Calcular fitness del vecino
+            fitness_vecino = fitness(X, y, vecino)
+            n_evaluaciones += 1
+
+            # Si el vecino es mejor, actualizamos pesos
+            if fitness_vecino > fitness_individuo:
+                individuo = vecino
+                fitness_individuo = fitness_vecino
+
+            # Si se alcanza el maximo de evaluaciones, salimos
+            if n_evaluaciones >= max_eval:
+                break
+
+    return individuo, fitness_individuo, n_evaluaciones
+
+def seleccion_BL(poblacion, fitness_poblacion, tipo_seleccion_bl):
+    match tipo_seleccion_bl:
+        case 'Mejores':
+            # Seleccionar el 10% de los mejores individuos
+            p = 0.1
+            return np.argsort(fitness_poblacion, order='asc')[0:int(p*n_filas(poblacion))]
+        case 'Aleatorios':
+            # Seleccionar el 10% de los individuos aleatorios
+            p = 0.1
+            return np.random.choice(poblacion, size=int(p*n_filas(poblacion)))
+        case 'Todos':
+            # Seleccionar todos los individuos
+            return range(n_filas(poblacion))
+        case _:
+            raise ValueError("Tipo de seleccion no válido.")
+
 def clasificador1NN(X_train, y_test, X_test, pesos=None, k=1):
     # Inicializar pesos a 1 si no se especifican simulando un KNN normal
     if pesos is None:

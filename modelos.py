@@ -258,6 +258,7 @@ class BL(Generic_Model):
 '''------------------------------------MODELO GENETICO------------------------------------'''
 
 class Genetic(Generic_Model):
+    @abstractmethod
     def __init__(self, crossover : str, seed : int = 7, evaluations : int = 15000, population : int = 50, mutation_rate : float = 0.08, crossover_rate : float = 0.7):
         super().__init__()
         self.seed = seed
