@@ -2,48 +2,58 @@
 
 Este programa te permite seleccionar una base de datos y un modelo para su análisis. A continuación, se presenta un manual detallado para su uso:
 
-## Ejecutar el programa
+## Inicio del Programa
 
-```
-python3 ./main.py
-```
+Para ejecutar el script, usar `python3 main.py`.
 
-## Inicio del Programa:
-- Al iniciar el programa, verás el siguiente mensaje:
-```
-Introduce la base de datos a utilizar [Opciones: BreastCancer[DEFAULT][1], Ecoli[2], Parkinson[3]]:
-```
+Al ejecutar el script, se te solicitará introducir la base de datos que deseas utilizar. Las opciones disponibles son:
 
-- Debes introducir el nombre de la base de datos que deseas utilizar. Las opciones son `BreastCancer`, `Ecoli` y `Parkinson`. También puedes seleccionar simplemente ingresando el número correspondiente a la base de datos deseada.
+- **BreastCancer** (Por defecto): Base de datos sobre cáncer de mama.
+- **Ecoli**: Base de datos sobre secuencias de ADN de bacterias E. coli.
+- **Parkinson**: Base de datos sobre la detección de la enfermedad de Parkinson.
 
-## Selección del Modelo:
-- Después de seleccionar la base de datos, el programa te pedirá que elijas el modelo a utilizar con el siguiente mensaje:
-```
-Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], ALL[4]]:
-```
-- Puedes seleccionar el modelo escribiendo su nombre completo o simplemente ingresando el número correspondiente al modelo deseado. Las opciones disponibles son `KNN`, `Relief`, `BL` y `ALL`. Si eliges `ALL`, se utilizarán todos los modelos disponibles.
+## Selección del Modelo
 
-## Configuración Adicional según el Modelo:
-- Dependiendo del modelo seleccionado, es posible que se soliciten configuraciones adicionales:
-- **Para KNN:**
-  - Se te pedirá que introduzcas el valor de `k`, que representa el número de vecinos a considerar.
-- **Para BL:**
-  - Se te pedirá que introduzcas el valor de la semilla que se utilizará en el proceso.
+Después de seleccionar la base de datos, se te pedirá que elijas el modelo de aprendizaje automático que deseas utilizar. Las opciones son:
 
-## Guardar Resultados en Archivo CSV:
-- Después de seleccionar el modelo y configurar las opciones adicionales (si es necesario), se te preguntará si deseas guardar los resultados en un archivo CSV con el siguiente mensaje:
-```
-Guardar resultados en archivo CSV [S/N][DEFAULT=N]:
-```
-- Puedes seleccionar `S` para guardar los resultados en un archivo CSV o `N` para no guardarlos.
+- **KNN** (Por defecto): K-Nearest Neighbors.
+- **Relief**: Algoritmo de selección de características Relief.
+- **BL**: Algoritmo Búsqueda Local.
+- **AGG**: Algoritmo Genético Generacional.
+- **AGE**: Algoritmo Genético Estacionario.
+- **AM**: Algoritmo Memético.
+- **ALL**: Ejecutar todos los modelos disponibles.
 
-## Requisitos del Programa:
-- Este programa requiere los siguientes paquetes de Python instalados en tu sistema:
-- `numpy`
-- `scipy`
-- `pandas`
-- `liac-arff`
-- `scikit-learn`
+## Configuración Adicional
 
-## Errores y Salida del Programa:
-- Si introduces una base de datos o modelo no válido, el programa mostrará un mensaje de error correspondiente y se cerrará.
+Dependiendo del modelo seleccionado, puede ser necesario introducir configuraciones adicionales:
+
+- **Valor de k**: Relevante para el modelo KNN y la opción ALL. Representa el número de vecinos más cercanos a considerar.
+- **Valor de la semilla**: Requerido para los modelos BL, AGG, AGE, AM y la opción ALL. La semilla se utiliza para inicializar la generación de números aleatorios.
+- **Versión Mejorada**: Para los modelos AGG, AGE, AM y la opción ALL, se te preguntará si deseas utilizar la versión mejorada de los algoritmos genéticos.
+- **Operador de Cruce**: Para AGG y AGE, se te solicitará seleccionar un operador de cruce entre 'CA' (Cruce Aritmético) y 'BLX' (Blend Crossover).
+- **Operador de Selección en BL para el algoritmo memético**: Para el modelo AM, deberás seleccionar un operador de selección entre 'All', 'Random' y 'Best'.
+
+## Ejecución del Modelo
+
+Una vez que se han introducido todas las configuraciones, el modelo seleccionado se ejecutará con las opciones especificadas.
+
+## Guardar Resultados en Archivo CSV
+
+Puedes seleccionar `S` para guardar los resultados en un archivo CSV o `N` para no guardarlos.
+
+## Requisitos del Programa
+
+Este programa requiere los siguientes paquetes de Python instalados en tu sistema:
+
+- numpy
+- scipy
+- pandas
+- liac-arff
+- scikit-learn
+- tqdm
+
+## Errores y Salida del Programa
+
+Si introduces una base de datos o modelo no válido, el programa mostrará un mensaje de error correspondiente y se cerrará.
+

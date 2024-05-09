@@ -156,6 +156,8 @@ def main():
             print('Operador de selección no válido')
             exit()
 
+    print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
+    guardar = input().lower()
 
     np.random.seed(seed)
 
@@ -213,9 +215,6 @@ def main():
                         ]
         
     models_params = funciones.Model_Parameters(model, params, model_name)
-
-    print('Guardar resultados en archivo CSV [S/N][DEFAULT=N]:')
-    guardar = input().lower()
 
     time_total_start = time.time()
 

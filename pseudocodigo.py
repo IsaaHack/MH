@@ -214,13 +214,22 @@ def fit_BL(X, y, max_evaluaciones, semilla=7):
 
     return pesos
 
-def fit_AGG(X, y, max_evaluaciones, tipo_cruce, semilla=7, poblacion = 50, prob_cruce = 0.7, prob_mutacion = 0.08):
+def generar_poblacion_inicial(n_poblacion, n_caracteristicas):
+    # Inicializar la poblacion con una matriz de n_poblacion x n_caracteristicas de pesos aleatorios de forma uniforme
+    poblacion = np.empty((n_poblacion, n_caracteristicas))
+
+    for i in range(n_poblacion):
+        for j in range(n_caracteristicas):
+            poblacion[i][j] = np.random.uniform(0, 1)
+
+
+def fit_AGG(X, y, max_evaluaciones, tipo_cruce, semilla=7, n_poblacion = 50, prob_cruce = 0.7, prob_mutacion = 0.08):
     # Semilla para inicializar pesos aleatorios
     np.random.seed(semilla)
     evaluaciones = 0
 
     # Inicializar la poblacion con pesos aleatorios de tamaño poblacion x columnas de X
-    poblacion = np.random.uniform(0, 1, size=(poblacion, n_columnas(X)))
+    poblacion = generar_poblacion_inicial(n_poblacion, n_columnas(X))
 
     # Initializar fitness de la poblacion
     fitness_poblacion = np.empty_like(poblacion)
@@ -301,7 +310,7 @@ def cruce_CA(padres, prob_cruce):
     # Calcular cruces esperados
     cruces_esperados = int(prob_cruce * n_filas(padres) / 2)
     # Generar alphas aleatorios
-    alphas = np.random.uniform(0, 1, size=cruces_esperados)
+    alphas = np.random.uniform(0, 1, size=cruces_esperados*2)
 
     hijos = []
 
@@ -360,13 +369,13 @@ def mutar_AGG(hijos, prob_mutacion):
         # Mutar gen
         hijo[gen] = np.random.uniform(0, 1)
 
-def fit_AGE(X, y, max_evaluaciones, tipo_cruce, semilla=7, poblacion = 50, prob_cruce = 1, prob_mutacion = 0.08):
+def fit_AGE(X, y, max_evaluaciones, tipo_cruce, semilla=7, n_poblacion = 50, prob_cruce = 1, prob_mutacion = 0.08):
     # Semilla para inicializar pesos aleatorios
     np.random.seed(semilla)
     evaluaciones = 0
 
     # Inicializar la poblacion con pesos aleatorios de tamaño poblacion x columnas de X
-    poblacion = np.random.uniform(0, 1, size=(poblacion, n_columnas(X)))
+    poblacion = generar_poblacion_inicial(n_poblacion, n_columnas(X))
 
     # Initializar fitness de la poblacion
     fitness_poblacion = np.empty_like(poblacion)
@@ -438,7 +447,7 @@ def mutar_AGE(hijos, prob_mutacion):
                 hijos[i][j] = max(hijos[i][j], 0)
                 hijos[i][j] = min(hijos[i][j], 1)
 
-def fit_AM(X, y, max_evaluaciones, tipo_seleccion_bl, semilla=7, poblacion = 50, prob_cruce = 0.7, prob_mutacion = 0.08):
+def fit_AM(X, y, max_evaluaciones, tipo_seleccion_bl, semilla=7, n_poblacion = 50, prob_cruce = 0.7, prob_mutacion = 0.08):
     # Semilla para inicializar pesos aleatorios
     np.random.seed(semilla)
     evaluaciones = 0
@@ -447,7 +456,7 @@ def fit_AM(X, y, max_evaluaciones, tipo_seleccion_bl, semilla=7, poblacion = 50,
     max_iter_bl = 2*n_columnas(X)
 
     # Inicializar la poblacion con pesos aleatorios de tamaño poblacion x columnas de X
-    poblacion = np.random.uniform(0, 1, size=(poblacion, n_columnas(X)))
+    poblacion = generar_poblacion_inicial(n_poblacion, n_columnas(X))
 
     # Initializar fitness de la poblacion
     fitness_poblacion = np.empty_like(poblacion)
@@ -513,9 +522,10 @@ def fit_AM(X, y, max_evaluaciones, tipo_seleccion_bl, semilla=7, poblacion = 50,
     # Devolvemos el mejor individuo
     return mejor_individuo
 
-def BL(X, y, individuo, fitness_individuo, max_eval):
+def BL(X, y, individuo, fitness, max_eval):
     # Inicializar el numero de evaluaciones
     n_evaluaciones = 0
+    fitness_individuo = fitness
 
     while n_evaluaciones < max_eval:
         # Obtener un orden de mutacion aleatorio
