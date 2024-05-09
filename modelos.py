@@ -56,9 +56,10 @@ class Generic_Model(ABC):
         weights_to_use = self.weights[self.weights >= 0.1]
         atributes_to_use = X[:, self.weights >= 0.1]
 
-        atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
+        #atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
 
-        distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2))
+        # equivalente a la distancia euclidea
+        distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2, w=weights_to_use))
         distances[np.diag_indices(distances.shape[0])] = np.inf
         distances = distances[self.X_train.shape[0]:, :self.X_train.shape[0]]
         index_predictions = np.argmin(distances, axis=1)
@@ -76,9 +77,10 @@ class Generic_Model(ABC):
         weights_to_use = weights[weights >= 0.1]
         atributes_to_use = self.X_train[:, weights >= 0.1]
 
-        atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
+        #atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
 
-        distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2))
+        # equivalente a la distancia euclidea
+        distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2, w=weights_to_use))
         distances[np.diag_indices(distances.shape[0])] = np.inf
         
         index_predictions = np.argmin(distances, axis=1)
@@ -476,7 +478,7 @@ class AGE(Genetic):
         super().__init__(crossover=crossover, seed=seed, evaluations=evaluations, population=population, mutation_rate=mutation_rate, crossover_rate=crossover_rate)
         if improved: 
             self._selection = self._best_selection
-            self.params['mutation_rate'] = 0.42
+            #self.params['mutation_rate'] = 0.42
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
