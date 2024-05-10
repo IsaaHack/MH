@@ -157,7 +157,7 @@ class Generic_Model(ABC):
                     weights = np.copy(neighbor)
                     iterations = 0
 
-                if n_eval >= max_evaluations:
+                if n_eval >= max_evaluations or iterations >= max_iter:
                     break
 
         if(pb): progress_bar.update(max_evaluations - n_eval)
