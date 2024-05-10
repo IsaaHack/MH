@@ -157,7 +157,7 @@ class Generic_Model(ABC):
                     weights = np.copy(neighbor)
                     iterations = 0
 
-                if n_eval >= max_evaluations or iterations >= max_iter:
+                if n_eval >= max_evaluations:
                     break
 
         if(pb): progress_bar.update(max_evaluations - n_eval)
@@ -478,7 +478,7 @@ class AGE(Genetic):
         super().__init__(crossover=crossover, seed=seed, evaluations=evaluations, population=population, mutation_rate=mutation_rate, crossover_rate=crossover_rate)
         if improved: 
             self._selection = self._best_selection
-            #self.params['mutation_rate'] = 0.42
+            self.params['mutation_rate'] = 0.42
 
     def fit(self, X_train, y_train):
         self.X_train = X_train
