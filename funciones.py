@@ -22,6 +22,9 @@ class Model_Parameters:
         self.params = params
         self.model_name = model_name
 
+def safeRandomMultiprocessing(seed : int, function : callable, params : dict):
+    np.random.seed(seed)
+    return function(**params)
 
 def objetiveFunction(tasa_clas, tasa_red, alfa=0.75):
     return alfa*tasa_clas + (1-alfa)*tasa_red
@@ -81,6 +84,15 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
             case 'AM':
                 model_params['seed'] = np.random.randint(0, 1000)
                 model = modelos.AM(**model_params)
+            case 'BMB':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.BMB(**model_params)
+            case 'ILS':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.ILS(**model_params)
+            case 'ES':
+                model_params['seed'] = np.random.randint(0, 1000)
+                model = modelos.ES(**model_params)
             case _:
                 print("Modelo no válido.")
                 exit()
