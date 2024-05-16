@@ -34,6 +34,9 @@ except ImportError:
     except subprocess.CalledProcessError:
         print("Error al instalar tqdm. Por favor, instálalo manualmente.")
 
+import multiprocessing as mp
+import psutil
+
 SQRT_03 : float = np.sqrt(0.3)
 DEFAULT_MAX_EVAL : int = 15000
 
@@ -61,6 +64,7 @@ class Generic_Model(ABC):
         # equivalente a la distancia euclidea
         distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2, w=weights_to_use))
         distances[np.diag_indices(distances.shape[0])] = np.inf
+
         distances = distances[self.X_train.shape[0]:, :self.X_train.shape[0]]
         index_predictions = np.argmin(distances, axis=1)
         predictions_labels = self.y_train[index_predictions]
@@ -78,7 +82,7 @@ class Generic_Model(ABC):
         atributes_to_use = self.X_train[:, weights >= 0.1]
 
         #atributes_to_use = atributes_to_use * np.sqrt(weights_to_use)
-
+        
         # equivalente a la distancia euclidea
         distances = sp.squareform(sp.pdist(atributes_to_use, 'minkowski', p=2, w=weights_to_use))
         distances[np.diag_indices(distances.shape[0])] = np.inf
@@ -281,8 +285,10 @@ class Genetic(Generic_Model):
         eval : int = 0
         progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
 
+        pool = mp.Pool(psutil.cpu_count(logical=False))
+
         population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
-        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        fitnesess = np.array(pool.map(self._fitness, population))
         eval += n_people
         progress_bar.update(n_people)
         best = np.copy(population[np.argmax(fitnesess)])
@@ -299,7 +305,7 @@ class Genetic(Generic_Model):
             self._crossover(new_population, crossover_rate)
             self._mutation(new_population, mutation_rate)
 
-            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
+            fitnesess = np.array(pool.map(self._fitness, new_population))
             eval += n_people
             progress_bar.update(n_people)
 
@@ -323,6 +329,8 @@ class Genetic(Generic_Model):
         # plt.legend()
         # plt.show()
 
+        pool.close()
+
         return np.copy(best)
     
 
@@ -330,10 +338,16 @@ class Genetic(Generic_Model):
         eval : int = 0
         progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
 
+        pool = mp.Pool(psutil.cpu_count(logical=False))
+
         population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
-        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        fitnesess = np.array(pool.map(self._fitness, population))
         eval += n_people
         progress_bar.update(n_people)
+
+        pool.close()
+
+        pool = mp.Pool(processes=2)
 
         # import matplotlib.pyplot as plt
         # import pandas as pd
@@ -347,7 +361,7 @@ class Genetic(Generic_Model):
             self._crossover(childrens, crossover_rate)
             self._mutation(childrens, mutation_rate)
 
-            fitnesess_children = np.apply_along_axis(self._fitness, 1, childrens)
+            fitnesess_children = np.array(pool.map(self._fitness, childrens))
             eval += childrens.shape[0]
             progress_bar.update(childrens.shape[0])
 
@@ -369,6 +383,8 @@ class Genetic(Generic_Model):
         # plt.title(f"Fitness de AGE con la función croosover {self._crossover.__name__} y la función de selección {self._selection.__name__}")
         # plt.legend()
         # plt.show()
+
+        pool.close()
 
         return np.copy(population[np.argmax(fitnesess)])
     
@@ -543,8 +559,10 @@ class AM(AGG):
 
         progress_bar = tqdm(total=max_evaluations, position=0, leave=True, desc='Progreso', colour='red', unit='eval', smoothing=0.1)
 
+        pool = mp.Pool(psutil.cpu_count(logical=False))
+
         population = np.random.uniform(0, 1, (n_people, self.X_train.shape[1]))
-        fitnesess = np.apply_along_axis(self._fitness, 1, population)
+        fitnesess = np.array(pool.map(self._fitness, population))
         eval += n_people
         n_generations += 1
         progress_bar.update(n_people)
@@ -563,7 +581,8 @@ class AM(AGG):
             self._crossover(new_population, crossover_rate)
             self._mutation(new_population, mutation_rate)
 
-            fitnesess = np.apply_along_axis(self._fitness, 1, new_population)
+            fitnesess = np.array(pool.map(self._fitness, new_population))
+            pool.join()
             eval += n_people
             progress_bar.update(n_people)
 
@@ -603,6 +622,8 @@ class AM(AGG):
         # plt.title(f"Fitness de AM con la función selección de bl {self._bl_selection.__name__} y la función de selección {self._selection.__name__}")
         # plt.legend()
         # plt.show()
+
+        pool.close()
 
         return np.copy(best)
     

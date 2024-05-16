@@ -11,6 +11,7 @@ except ImportError:
         print("Pandas se ha instalado correctamente.")
     except subprocess.CalledProcessError:
         print("Error al instalar Pandas. Por favor, instálalo manualmente.")
+
 import modelos
 
 ALPHA = 0.75
@@ -20,6 +21,7 @@ class Model_Parameters:
         self.model_type = model_type
         self.params = params
         self.model_name = model_name
+
 
 def objetiveFunction(tasa_clas, tasa_red, alfa=0.75):
     return alfa*tasa_clas + (1-alfa)*tasa_red
