@@ -80,8 +80,7 @@ def main():
         print('Base de datos no válida')
         exit()
 
-    ALL_MODELS = ['KNN', 'Relief', 'BL', 'AGG' 'AGE', 'AM-']
-    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], AM[6], ALL[7]]:')
+    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], AM[6], BMB[7], ILS[8], ES[9], ALL[10]]:')
     model_type = input()
 
     if model_type == 'KNN' or model_type == '' or model_type == '1':
@@ -96,7 +95,13 @@ def main():
         model_type = 'AGE'
     elif model_type == 'AM' or model_type == '6':
         model_type = 'AM'
-    elif model_type == 'ALL' or model_type == '7':
+    elif model_type == 'BMB' or model_type == '7':
+        model_type = 'BMB'
+    elif model_type == 'ILS' or model_type == '8':
+        model_type = 'ILS'
+    elif model_type == 'ES' or model_type == '9':
+        model_type = 'ES'
+    elif model_type == 'ALL' or model_type == '10':
         model_type = 'ALL'
     elif model_type != '':
         print('Modelo no válido')
@@ -116,7 +121,7 @@ def main():
             print('Valor de k no válido')
             exit()
 
-    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'AM' or model_type == 'ALL':
+    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'AM' or model_type == 'BMB' or model_type == 'ILS' or model_type == 'ES' or model_type == 'ALL':
         print('Introduce el valor de la semilla [DEFAULT=7]:')
         seed_i = input()
         if seed_i == '':
@@ -198,20 +203,34 @@ def main():
             model = ['AM']
             model_name = ['AM-'+seleccion]
             params = [{'crossover' : 'BLX', 'bl_selection' : seleccion, 'improved' : version_mejorada}]
+        case 'BMB':
+            model = ['BMB']
+            model_name = ['BMB']
+            params = [{}]
+        case 'ILS':
+            model = ['ILS']
+            model_name = ['ILS']
+            params = [{}]
+        case 'ES':
+            model = ['ES']
+            model_name = ['ES']
+            params = [{}]
         case 'ALL':
-            model = ['KNN', 'Relief', 'BL', 'AGG', 'AGG', 'AGE', 'AGE', 'AM', 'AM', 'AM']
-            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-All', 'AM-Random', 'AM-Best']
-            params = [{'k' : k},
-                       {}, 
-                       {},
-                          {'crossover' : 'CA', 'improved' : version_mejorada},
-                          {'crossover' : 'BLX', 'improved' : version_mejorada},
-                            {'crossover' : 'CA', 'improved' : version_mejorada},
-                            {'crossover' : 'BLX', 'improved' : version_mejorada},
-                              {'crossover' : 'BLX', 'bl_selection' : 'All', 'improved' : version_mejorada},
-                              {'crossover' : 'BLX', 'bl_selection' : 'Random', 'improved' : version_mejorada},
-                              {'crossover' : 'BLX', 'bl_selection' : 'Best', 'improved' : version_mejorada}
-
+            model = ['KNN', 'Relief', 'BL', 'AGG', 'AGG', 'AGE', 'AGE', 'AM', 'AM', 'AM', 'BMB']
+            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-All', 'AM-Random', 'AM-Best', 'BMB']
+            params = [{'k' : k}, # KNN
+                       {},      # Relief
+                       {},     # BL
+                          {'crossover' : 'CA', 'improved' : version_mejorada}, # AGG-CA
+                          {'crossover' : 'BLX', 'improved' : version_mejorada}, # AGG-BLX
+                            {'crossover' : 'CA', 'improved' : version_mejorada}, # AGE-CA
+                            {'crossover' : 'BLX', 'improved' : version_mejorada}, # AGE-BLX
+                              {'crossover' : 'BLX', 'bl_selection' : 'All', 'improved' : version_mejorada}, # AM-All
+                              {'crossover' : 'BLX', 'bl_selection' : 'Random', 'improved' : version_mejorada}, # AM-Random
+                              {'crossover' : 'BLX', 'bl_selection' : 'Best', 'improved' : version_mejorada}, # AM-Best
+                                 {}, # BMB
+                                   {}, # ILS
+                                     {} # ES
                         ]
         
     models_params = funciones.Model_Parameters(model, params, model_name)
