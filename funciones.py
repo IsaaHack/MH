@@ -22,9 +22,6 @@ class Model_Parameters:
         self.params = params
         self.model_name = model_name
 
-def safeRandomMultiprocessing(seed : int, function : callable, params : dict):
-    np.random.seed(seed)
-    return function(**params)
 
 def objetiveFunction(tasa_clas, tasa_red, alfa=0.75):
     return alfa*tasa_clas + (1-alfa)*tasa_red
@@ -35,6 +32,7 @@ def fiveCrossValidation(X1 : np.ndarray, X2 : np.ndarray, X3 : np.ndarray, X4 : 
     resultados = pd.DataFrame()
     pesos = list()
     np.random.seed(seed)
+    
     for i in range(5):
         # Unir los conjuntos de datos
         if(i == 0):

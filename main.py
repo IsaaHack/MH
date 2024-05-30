@@ -80,7 +80,7 @@ def main():
         print('Base de datos no válida')
         exit()
 
-    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], AM[6], BMB[7], ILS[8], ES[9], ALL[10]]:')
+    print('Elige el modelo a utilizar [Opciones: KNN[DEFAULT][1], Relief[2], BL[3], AGG[4], AGE[5], AM[6], BMB[7], ILS[8], ILS-ES[9], ES[10], P3[11], ALL[12]]:')
     model_type = input()
 
     if model_type == 'KNN' or model_type == '' or model_type == '1':
@@ -99,9 +99,13 @@ def main():
         model_type = 'BMB'
     elif model_type == 'ILS' or model_type == '8':
         model_type = 'ILS'
-    elif model_type == 'ES' or model_type == '9':
+    elif model_type == 'ILS-ES' or model_type == '9':
+        model_type = 'ILS-ES'
+    elif model_type == 'ES' or model_type == '10':
         model_type = 'ES'
-    elif model_type == 'ALL' or model_type == '10':
+    elif model_type == 'P3' or model_type == '11':
+        model_type = 'P3'
+    elif model_type == 'ALL' or model_type == '12':
         model_type = 'ALL'
     elif model_type != '':
         print('Modelo no válido')
@@ -121,7 +125,7 @@ def main():
             print('Valor de k no válido')
             exit()
 
-    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'AM' or model_type == 'BMB' or model_type == 'ILS' or model_type == 'ES' or model_type == 'ALL':
+    if model_type == 'BL' or model_type == 'AGG' or model_type == 'AGE' or model_type == 'AM' or model_type == 'BMB' or model_type == 'ILS' or model_type == 'ES' or model_type == 'ALL' or model_type == 'P3':
         print('Introduce el valor de la semilla [DEFAULT=7]:')
         seed_i = input()
         if seed_i == '':
@@ -210,14 +214,28 @@ def main():
         case 'ILS':
             model = ['ILS']
             model_name = ['ILS']
-            params = [{}]
+            params = [{'fit' : 'BL'}]
+        case 'ILS-ES':
+            model = ['ILS']
+            model_name = ['ILS-ES']
+            params = [{'fit' : 'ES'}]
         case 'ES':
             model = ['ES']
             model_name = ['ES']
             params = [{}]
+        case 'P3':
+            model = ['BL', 'AM', 'BMB', 'ILS', 'ILS', 'ES']
+            model_name = ['BL', 'AM-Best','BMB', 'ILS', 'ILS-ES', 'ES']
+            params = [{}, # BL
+                        {'crossover' : 'BLX', 'bl_selection' : 'Best', 'improved' : True}, # AM-Best
+                          {}, # BMB
+                            {'fit' : 'BL'}, # ILS
+                              {'fit' : 'ES'}, # ILS-ES
+                                {} # ES
+                            ]
         case 'ALL':
-            model = ['KNN', 'Relief', 'BL', 'AGG', 'AGG', 'AGE', 'AGE', 'AM', 'AM', 'AM', 'BMB']
-            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-All', 'AM-Random', 'AM-Best', 'BMB']
+            model = ['KNN', 'Relief', 'BL', 'AGG', 'AGG', 'AGE', 'AGE', 'AM', 'AM', 'AM', 'BMB', 'ILS', 'ILS', 'ES']
+            model_name = [str(k)+'NN', 'Relief', 'BL', 'AGG-CA', 'AGG-BLX', 'AGE-CA', 'AGE-BLX', 'AM-All', 'AM-Random', 'AM-Best', 'BMB', 'ILS', 'ILS-ES', 'ES']
             params = [{'k' : k}, # KNN
                        {},      # Relief
                        {},     # BL
@@ -229,7 +247,8 @@ def main():
                               {'crossover' : 'BLX', 'bl_selection' : 'Random', 'improved' : version_mejorada}, # AM-Random
                               {'crossover' : 'BLX', 'bl_selection' : 'Best', 'improved' : version_mejorada}, # AM-Best
                                  {}, # BMB
-                                   {}, # ILS
+                                   {'fit' : 'BL'}, # ILS
+                                   {'fit' : 'ES'}, # ILS-ES
                                      {} # ES
                         ]
         
@@ -337,16 +356,16 @@ def main():
         global_dataframe = pd.concat([global_dataframe, df], axis=1)
 
 
-    if guardar == 's' and model_type == 'ALL':
+    if guardar == 's' and (model_type == 'ALL' or model_type == 'P3'):
         print()
         print('Guardando resultados globales en archivo CSV...')
         if not os.path.exists('./results'):
             os.makedirs('./results')
         try:
             if version_mejorada:
-                global_dataframe.to_csv('./results/'+cadena+'_ALL_improved.csv', index=False)
+                global_dataframe.to_csv('./results/'+cadena+'_'+model_type+'_improved.csv', index=False)
             else:
-                global_dataframe.to_csv('./results/'+cadena+'_ALL.csv', index=False)
+                global_dataframe.to_csv('./results/'+cadena+'_'+model_type+'.csv', index=False)
             print('Resultados guardados correctamente')
         except:
             print('Error al guardar los resultados')
