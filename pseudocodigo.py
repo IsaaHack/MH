@@ -565,6 +565,158 @@ def seleccion_BL(poblacion, fitness_poblacion, tipo_seleccion_bl):
             return range(n_filas(poblacion))
         case _:
             raise ValueError("Tipo de seleccion no válido.")
+        
+def fit_ES(X, y, individuo, max_eval):
+    # Inicializar el numero de evaluaciones
+    n_evaluaciones = 0
+
+    # Inicializar el fitness del individuo
+    fitness_individuo = fitness(X, y, individuo)
+
+    # Peso actual
+    actual = individuo
+    fitness_actual = fitness_individuo
+
+    # Guardamos el mejor individuo
+    mejor_individuo = individuo
+    fitness_mejor_individuo = fitness_individuo
+
+    temperatura = temperatura_inicial(sigma=0.3, mu=0.1, eval=fitness_actual)
+    temperatura_final = 10e-3
+
+    # Inicializar maximo de vecinos, exitos y enfriamientos
+    max_vecinos = 10*n_columnas(individuo)
+    max_exitos = max_vecinos // 10
+    max_enfriamientos = max_eval // max_vecinos
+
+    beta = (temperatura - temperatura_final) / (max_enfriamientos * temperatura * temperatura_final)
+
+    # Varible para saber si ha habido exito
+    exito = True
+
+    while n_evaluaciones < max_eval and exito:
+        n_vecinos = 0
+        n_exitos = 0
+
+        while n_evaluaciones < max_eval and n_vecinos < max_vecinos and n_exitos < max_exitos:
+            # Obetener el gen a mutar
+            gen = np.random.randint(0, n_columnas(individuo))
+
+            # Obtener un vecino
+            vecino = obtenerVecino(actual, gen)
+
+            # Calcular fitness del vecino
+            fitness_vecino = fitness(X, y, vecino)
+            n_evaluaciones += 1
+            n_vecinos += 1
+
+            delta = fitness_actual - fitness_vecino
+
+            # Si el vecino es mejor,o se decide por probabilidad,empeorar se actualiza el actual
+            if delta < 0 or np.random.uniform(0, 1) <= np.exp(delta/temperatura):
+                actual = vecino
+                fitness_actual = fitness_vecino
+                n_exitos += 1
+
+                # Si el vecino es mejor que el mejor individuo, lo actualizamos
+                if fitness_vecino > fitness_mejor_individuo:
+                    mejor_individuo = vecino
+                    fitness_mejor_individuo = fitness_vecino
+
+        # Enfriar la temperatura
+        temperatura = enfriar(temperatura, beta)
+        # Comprobar si ha habido exito
+        exito = n_exitos > 0
+
+    return mejor_individuo, fitness_mejor_individuo, n_evaluaciones
+
+def temperatura_inicial(sigma, mu, eval):
+    # La ecuacion es mu*eval/-ln(sigma)
+    return mu*eval/-np.log(sigma)
+
+def enfriar(temperatura, beta):
+    # Esquema de enfriamiento Cauchy modificado
+    return temperatura / (1 + beta*temperatura)
+
+def fit_BMB(X, y, max_iter, eval_bl, semilla=7):
+    # Semilla para inicializar pesos aleatorios
+    np.random.seed(semilla)
+
+    # Inicializar pesos con una distribución uniforme con el tamaño de columnas de X
+    soluciones_iniciales = generar_poblacion_inicial(max_iter, n_columnas(X))
+    fitness_soluciones = np.empty(max_iter)
+
+    # Mejorar las soluciones iniciales con busqueda local
+    for i in range(max_iter):
+        soluciones_iniciales[i], fitness_soluciones[i], _ = BL(X, y, soluciones_iniciales[i], eval_bl)
+
+    # Obtener la mejor solucion
+    mejor_solucion = soluciones_iniciales[np.argmax(fitness_soluciones)]
+
+    return mejor_solucion
+
+def fit_ILS(X, y, tipo_fit, max_iter, eval_bl, prob_mutacion, semilla=7):
+    # Semilla para inicializar pesos aleatorios
+    np.random.seed(semilla)
+
+    # Elegir el la funcion de fit que se va a utilizar, si BL o ES
+    match tipo_fit:
+        case 'BL':
+            fit = BL
+        case 'ES':
+            fit = fit_ES
+        case _:
+            raise ValueError("Tipo de fit no válido.")
+
+    # Inicializar pesos con una distribución uniforme con el tamaño de columnas de X
+    solucion_actual = np.random.uniform(0, 1, n_columnas(X))
+
+    # Calcular el fitness de la solucion actual
+    solucion_actual, fitness_actual, _ = fit(X, y, solucion_actual, eval_bl)
+    iteraciones = 1
+
+    # Almacenar la mejor solucion
+    mejor_solucion = solucion_actual
+    mejor_fitness = fitness_actual
+
+    while iteraciones < max_iter:
+        # Mutar la mejor solucion
+        solucion_actual = mutacion_ILS(mejor_solucion, prob_mutacion)
+
+        #Mejorar la solucion mutada
+        solucion_actual, fitness_actual, _ = fit(X, y, solucion_actual, eval_bl)
+        iteraciones += 1
+
+        # Si la solucion actual es mejor que la mejor, la actualizamos
+        if fitness_actual > mejor_fitness:
+            mejor_solucion = solucion_actual
+            mejor_fitness = fitness_actual
+
+    return mejor_solucion
+
+def mutacion_ILS(solucion, prob_mutacion):
+    # Elelgir genes aleatorios a mutar
+    genes = np.random.uniform(0, 1, n_columnas(solucion)) < prob_mutacion
+
+    # HSi hay almenos 3 genes a mutar, necesitamos al menos 3 genes que mutar
+    if n_columnas(solucion) > 3:
+        while np.sum(genes) < 3:
+            genes[np.random.randint(0, n_columnas(solucion))] = True
+
+    # Mutar los genes
+    nueva_solucion = solucion.copy()
+
+    for i in range(n_columnas(solucion)):
+        if genes[i]:
+            # Variar el gen en un rango de [-0.25, 0.25]
+            nueva_solucion[i] = nueva_solucion[i] + np.random.uniform(-0.25, 0.25)
+
+            # Poner el gen en el rango [0, 1]
+            nueva_solucion[i] = max(nueva_solucion[i], 0)
+            nueva_solucion[i] = min(nueva_solucion[i], 1)
+
+    return nueva_solucion
+
 
 def clasificador1NN(X_train, y_test, X_test, pesos=None, k=1):
     # Inicializar pesos a 1 si no se especifican simulando un KNN normal
