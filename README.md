@@ -22,6 +22,11 @@ Después de seleccionar la base de datos, se te pedirá que elijas el modelo de 
 - **AGG**: Algoritmo Genético Generacional.
 - **AGE**: Algoritmo Genético Estacionario.
 - **AM**: Algoritmo Memético.
+- **BMB**: Algoritmo Multiarranque básico.
+- **ILS**: Algoritmo Iterative Local Search.
+- **ILS-ES**: Algoritmo Iterative Local Search con Enfriamiento Simulado.
+- **ES**: Algoritmo Enfriamiento Simulado.
+- **P3**: Ejecutar los algoritmos de la práctica 3.
 - **ALL**: Ejecutar todos los modelos disponibles.
 
 ## Configuración Adicional
